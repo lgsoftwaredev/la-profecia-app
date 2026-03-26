@@ -52,6 +52,5 @@ No priorizar funcionalidades online multijugador en tiempo real.
 ## Validación mínima antes de cerrar tareas
 - flutter analyze
 - dart format .
-- flutter test cuando aplique
 - verificar que el cambio no rompe guest mode
 - verificar que premium y niveles no quedan expuestos por error
