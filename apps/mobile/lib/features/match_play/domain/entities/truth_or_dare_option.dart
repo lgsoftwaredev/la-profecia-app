@@ -1,0 +1,1 @@
+enum TruthOrDareOption { verdad, reto }

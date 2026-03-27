@@ -5,17 +5,36 @@ class App3dPillButton extends StatefulWidget {
     required this.label,
     required this.color,
     this.textStyle,
+    this.leadingIcon,
+    this.leadingIconColor,
+    this.leadingIconSize = 20,
+    this.leadingIconGap = 8,
+    this.gradientColors,
+    this.gradientBegin = Alignment.topCenter,
+    this.gradientEnd = Alignment.bottomCenter,
     this.height = 44,
     this.depth = 3.5,
+    this.borderRadius = 999,
     this.onTap,
     super.key,
-  });
+  }) : assert(
+         gradientColors == null || gradientColors.length >= 2,
+         'gradientColors must contain at least 2 colors',
+       );
 
   final String label;
   final Color color;
   final TextStyle? textStyle;
+  final IconData? leadingIcon;
+  final Color? leadingIconColor;
+  final double leadingIconSize;
+  final double leadingIconGap;
+  final List<Color>? gradientColors;
+  final Alignment gradientBegin;
+  final Alignment gradientEnd;
   final double height;
   final double depth;
+  final double borderRadius;
   final VoidCallback? onTap;
 
   @override
@@ -42,11 +61,19 @@ class _App3dPillButtonState extends State<App3dPillButton> {
 
   @override
   Widget build(BuildContext context) {
-    const radius = 999.0;
     final topOffset = _isPressed ? widget.depth : 0.0;
-    final topStart = _shiftLightness(widget.color, 0.08);
-    final topEnd = _shiftLightness(widget.color, -0.01);
-    final baseColor = _shiftLightness(widget.color, -0.12);
+    final fallbackTopStart = _shiftLightness(widget.color, 0.08);
+    final fallbackTopEnd = _shiftLightness(widget.color, -0.01);
+    final gradientColors =
+        widget.gradientColors ?? [fallbackTopStart, fallbackTopEnd];
+    final baseColor = _shiftLightness(gradientColors.last, -0.12);
+    final resolvedTextStyle =
+        widget.textStyle ??
+        Theme.of(context).textTheme.bodyLarge?.copyWith(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          height: 1,
+        );
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -67,7 +94,7 @@ class _App3dPillButtonState extends State<App3dPillButton> {
                 height: widget.height,
                 decoration: BoxDecoration(
                   color: baseColor,
-                  borderRadius: BorderRadius.circular(radius),
+                  borderRadius: BorderRadius.circular(widget.borderRadius),
                 ),
               ),
             ),
@@ -80,11 +107,11 @@ class _App3dPillButtonState extends State<App3dPillButton> {
               child: Container(
                 height: widget.height,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(radius),
+                  borderRadius: BorderRadius.circular(widget.borderRadius),
                   gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [topStart, topEnd],
+                    begin: widget.gradientBegin,
+                    end: widget.gradientEnd,
+                    colors: gradientColors,
                   ),
                   boxShadow: _isPressed
                       ? const []
@@ -97,16 +124,22 @@ class _App3dPillButtonState extends State<App3dPillButton> {
                         ],
                 ),
                 child: Center(
-                  child: Text(
-                    widget.label,
-                    style:
-                        widget.textStyle ??
-                        Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          height: 1,
+                  child: widget.leadingIcon == null
+                      ? Text(widget.label, style: resolvedTextStyle)
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              widget.leadingIcon,
+                              size: widget.leadingIconSize,
+                              color:
+                                  widget.leadingIconColor ??
+                                  resolvedTextStyle?.color,
+                            ),
+                            SizedBox(width: widget.leadingIconGap),
+                            Text(widget.label, style: resolvedTextStyle),
+                          ],
                         ),
-                  ),
                 ),
               ),
             ),

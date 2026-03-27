@@ -1,0 +1,726 @@
+import 'package:flutter/material.dart';
+
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/global_bottom_menu.dart';
+import '../../../game_mode_selection/domain/entities/game_mode.dart';
+import '../../domain/entities/game_setup_models.dart';
+import 'truth_or_dare_selection_page.dart';
+import '../widgets/level_card_frame.dart';
+import '../widgets/start_points_roulette_wheel.dart';
+
+class StartPointsPage extends StatefulWidget {
+  const StartPointsPage({required this.submission, super.key});
+
+  final GameSetupSubmission submission;
+
+  @override
+  State<StartPointsPage> createState() => _StartPointsPageState();
+}
+
+class _StartPointsPageState extends State<StartPointsPage> {
+  static const _order = [
+    GameStyleTheme.cielo,
+    GameStyleTheme.tierra,
+    GameStyleTheme.infierno,
+    GameStyleTheme.inframundo,
+  ];
+
+  static const _pointsByTheme = {
+    GameStyleTheme.cielo: 5,
+    GameStyleTheme.tierra: 10,
+    GameStyleTheme.infierno: 20,
+    GameStyleTheme.inframundo: 30,
+  };
+
+  late GameStyleTheme _selectedTheme = _initialTheme(
+    widget.submission.selectedTheme,
+  );
+  var _bottomMenuItem = GlobalBottomMenuItem.home;
+
+  static GameStyleTheme _initialTheme(GameStyleTheme input) {
+    if (input == GameStyleTheme.infierno ||
+        input == GameStyleTheme.inframundo) {
+      return GameStyleTheme.tierra;
+    }
+    return input;
+  }
+
+  String get _backgroundAsset => widget.submission.mode.isFriends
+      ? 'assets/background-setup-friends-mode.png'
+      : 'assets/background-setup-couple-mode.png';
+
+  bool _isLocked(GameStyleTheme theme) {
+    return theme == GameStyleTheme.infierno ||
+        theme == GameStyleTheme.inframundo;
+  }
+
+  int _pointsFor(GameStyleTheme theme) => _pointsByTheme[theme] ?? 0;
+
+  void _goToTruthOrDareSelection(GameStyleTheme selectedTheme) {
+    final submission = GameSetupSubmission(
+      mode: widget.submission.mode,
+      players: widget.submission.players,
+      pairs: widget.submission.pairs,
+      selectedTheme: selectedTheme,
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TruthOrDareSelectionPage(submission: submission),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBody: true,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(_backgroundAsset, fit: BoxFit.cover),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0x73050316),
+                  const Color(0xFF070712).withValues(alpha: 0.94),
+                ],
+              ),
+            ),
+          ),
+          SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                const SizedBox(height: AppSpacing.sm),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                  ),
+                  child: SizedBox(
+                    height: 96,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Image.asset(
+                              'assets/logo-+18.png',
+                              width: 128,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                        _HeaderSideButton(
+                          onTap: () {
+                            if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      0,
+                      AppSpacing.lg,
+                      170,
+                    ),
+                    child: Column(
+                      children: [
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              const TextSpan(text: 'Iniciemos la '),
+                              TextSpan(
+                                text: 'profecía',
+                                style: const TextStyle(
+                                  color: Color(0xFFE63D86),
+                                ),
+                              ),
+                            ],
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  fontSize: 41 * 0.65,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Esto se pondrá bueeeeno...',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.82),
+                              ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _RouletteSection(
+                          selectedTheme: _selectedTheme,
+                          selectedPoints: _pointsFor(_selectedTheme),
+                          onThemeChanged: (theme) =>
+                              setState(() => _selectedTheme = theme),
+                          onSpinCompleted: _goToTruthOrDareSelection,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        _PlayersPointsSection(submission: widget.submission),
+                        const SizedBox(height: AppSpacing.md),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Elige tu nivel',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withValues(alpha: 0.92),
+                                ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        for (final theme in _order) ...[
+                          LevelCardFrame(
+                            borderColor: theme.accentColor,
+                            isSelected: _selectedTheme == theme,
+                            enabled: !_isLocked(theme),
+                            onTap: () {
+                              if (_isLocked(theme)) {
+                                return;
+                              }
+                              setState(() {
+                                _selectedTheme = theme;
+                              });
+                            },
+                            height: 74,
+                            borderRadius: 20,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.sm,
+                            ),
+                            child: Row(
+                              children: [
+                                _ThemeSquareIcon(theme: theme),
+                                const SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        theme.label,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.2,
+                                            ),
+                                      ),
+                                      Text(
+                                        '+${_pointsFor(theme)} puntos',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.82,
+                                              ),
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 12,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (_isLocked(theme))
+                                  Row(
+                                    children: [
+                                      Image.asset(
+                                        'assets/logo-icon-time-waiting.png',
+                                        width: 20,
+                                        height: 20,
+                                        fit: BoxFit.contain,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '21:00',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              fontStyle: FontStyle.italic,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.9,
+                                              ),
+                                            ),
+                                      ),
+                                    ],
+                                  )
+                                else
+                                  Image.asset(
+                                    'assets/logo-icon-checked.png',
+                                    width: 20,
+                                    height: 20,
+                                    fit: BoxFit.contain,
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                        ],
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          'INFIERNO E INFRAMUNDO se desbloquearán\ntras la 1ra ronda...',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                fontStyle: FontStyle.italic,
+                                color: Colors.white.withValues(alpha: 0.72),
+                                height: 1.2,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: GlobalBottomMenu(
+        currentItem: _bottomMenuItem,
+        onItemSelected: (item) {
+          setState(() {
+            _bottomMenuItem = item;
+          });
+          if (item == GlobalBottomMenuItem.home &&
+              Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+        },
+      ),
+    );
+  }
+}
+
+class _RouletteSection extends StatelessWidget {
+  const _RouletteSection({
+    required this.selectedTheme,
+    required this.selectedPoints,
+    required this.onThemeChanged,
+    required this.onSpinCompleted,
+  });
+
+  final GameStyleTheme selectedTheme;
+  final int selectedPoints;
+  final ValueChanged<GameStyleTheme> onThemeChanged;
+  final ValueChanged<GameStyleTheme> onSpinCompleted;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedColor = selectedTheme.accentColor;
+
+    return Column(
+      children: [
+        StartPointsRouletteWheel(
+          selectedTheme: selectedTheme,
+          onThemeChanged: onThemeChanged,
+          onSpinCompleted: onSpinCompleted,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          selectedTheme.label,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: selectedColor,
+            fontWeight: FontWeight.w700,
+            fontSize: 41 * 0.62,
+          ),
+        ),
+        Text(
+          '+$selectedPoints puntos',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: Colors.white.withValues(alpha: 0.85),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PlayersPointsSection extends StatelessWidget {
+  const _PlayersPointsSection({required this.submission});
+
+  final GameSetupSubmission submission;
+
+  @override
+  Widget build(BuildContext context) {
+    final visiblePlayers = submission.players
+        .where((player) => player.name.trim().isNotEmpty)
+        .toList(growable: false);
+
+    final players = visiblePlayers.isEmpty
+        ? [
+            for (final player in submission.players)
+              _ScorePlayer(id: player.id, name: 'Jugador ${player.id}'),
+          ]
+        : visiblePlayers
+              .map(
+                (player) =>
+                    _ScorePlayer(id: player.id, name: player.name.trim()),
+              )
+              .toList(growable: false);
+
+    if (submission.mode.isCouples) {
+      final pairs = submission.pairs.isNotEmpty
+          ? [
+              for (
+                var pairIndex = 0;
+                pairIndex < submission.pairs.length;
+                pairIndex++
+              )
+                (
+                  title: 'Pareja ${pairIndex + 1}',
+                  players: submission.pairs[pairIndex]
+                      .map(
+                        (player) => _ScorePlayer(
+                          id: player.id,
+                          name: player.name.trim().isEmpty
+                              ? 'Jugador ${player.id}'
+                              : player.name.trim(),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+            ]
+          : _buildFallbackPairs(players);
+
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: [
+            for (var i = 0; i < pairs.length; i++) ...[
+              SizedBox(
+                width: 210,
+                child: _PlayersGroupCard(
+                  title: pairs[i].title,
+                  players: pairs[i].players,
+                  accentColor: const Color(0xFFFF2B97),
+                  highlightBorder: i == 0,
+                ),
+              ),
+              if (i != pairs.length - 1) const SizedBox(width: AppSpacing.sm),
+            ],
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Jugadores',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontSize: 42 * 0.62,
+            fontWeight: FontWeight.w700,
+            color: Colors.white.withValues(alpha: 0.93),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              for (var i = 0; i < players.length; i++) ...[
+                SizedBox(
+                  width: 196,
+                  child: _PlayerPointsTile(
+                    player: players[i],
+                    accentColor: const Color(0xFF0787FF),
+                  ),
+                ),
+                if (i != players.length - 1)
+                  const SizedBox(width: AppSpacing.sm),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<({String title, List<_ScorePlayer> players})> _buildFallbackPairs(
+    List<_ScorePlayer> players,
+  ) {
+    final pairs = <({String title, List<_ScorePlayer> players})>[];
+    for (var i = 0; i < players.length; i += 2) {
+      final chunk = players.skip(i).take(2).toList(growable: false);
+      pairs.add((title: 'Pareja ${(i ~/ 2) + 1}', players: chunk));
+    }
+    return pairs;
+  }
+}
+
+class _PlayersGroupCard extends StatelessWidget {
+  const _PlayersGroupCard({
+    required this.title,
+    required this.players,
+    required this.accentColor,
+    required this.highlightBorder,
+  });
+
+  final String title;
+  final List<_ScorePlayer> players;
+  final Color accentColor;
+  final bool highlightBorder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xF711131A), Color(0xF305070B)],
+        ),
+        border: Border.all(
+          color: highlightBorder
+              ? accentColor.withValues(alpha: 0.95)
+              : Colors.white.withValues(alpha: 0.08),
+          width: 1.1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: highlightBorder
+                ? accentColor.withValues(alpha: 0.22)
+                : Colors.black.withValues(alpha: 0.22),
+            blurRadius: 22,
+            spreadRadius: 0.3,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontSize: 42 * 0.62,
+              fontWeight: FontWeight.w700,
+              color: Colors.white.withValues(alpha: 0.93),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          for (var i = 0; i < players.length; i++) ...[
+            _PlayerPointsTile(player: players[i], accentColor: accentColor),
+            if (i != players.length - 1) const SizedBox(height: AppSpacing.sm),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PlayerPointsTile extends StatelessWidget {
+  const _PlayerPointsTile({required this.player, required this.accentColor});
+
+  final _ScorePlayer player;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 72,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFF0C0E14).withValues(alpha: 0.92),
+        border: Border.all(color: accentColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+          ),
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.50),
+            blurRadius: 18,
+            spreadRadius: 0.5,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accentColor,
+            ),
+            child: Text(
+              '${player.id}',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 19,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  player.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 17,
+                    color: Colors.white.withValues(alpha: 0.95),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Image.asset(
+                      'assets/logo-icon-start-points.png',
+                      width: 14,
+                      height: 14,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '0 puntos',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.84),
+                        fontSize: 12.8,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScorePlayer {
+  const _ScorePlayer({required this.id, required this.name});
+
+  final int id;
+  final String name;
+}
+
+class _ThemeSquareIcon extends StatelessWidget {
+  const _ThemeSquareIcon({required this.theme});
+
+  final GameStyleTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    if (theme == GameStyleTheme.inframundo) {
+      return Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          '😈',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontSize: 22,
+            color: const Color(0xFFC246FF),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+
+    final asset = switch (theme) {
+      GameStyleTheme.cielo => 'assets/cielo-icon-logo.png',
+      GameStyleTheme.tierra => 'assets/tierra-icon-logo.png',
+      GameStyleTheme.infierno => 'assets/infierno-icon-logo.png',
+      GameStyleTheme.inframundo => 'assets/inframundo-icon-logo.png',
+    };
+
+    return Container(
+      width: 34,
+      height: 34,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Image.asset(asset, fit: BoxFit.contain),
+    );
+  }
+}
+
+class _HeaderSideButton extends StatelessWidget {
+  const _HeaderSideButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 48,
+      height: 80,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(30),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFF081730).withValues(alpha: 0.72),
+                  const Color(0xFF071126).withValues(alpha: 0.58),
+                ],
+              ),
+              border: Border.all(
+                color: const Color(0xFF1176E3).withValues(alpha: 0.48),
+                width: 1.1,
+              ),
+            ),
+            child: Center(
+              child: Icon(
+                Icons.chevron_left_rounded,
+                size: 32,
+                color: const Color(0xFF20A5FF).withValues(alpha: 0.95),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

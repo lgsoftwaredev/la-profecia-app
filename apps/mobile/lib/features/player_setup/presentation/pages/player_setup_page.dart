@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_3d_pill_button.dart';
 import '../../../../core/widgets/global_bottom_menu.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../domain/entities/game_setup_models.dart';
 import '../controllers/player_setup_controller.dart';
+import 'start_points_page.dart';
 import '../widgets/game_style_card.dart';
 import '../widgets/player_name_card.dart';
-import '../widgets/player_setup_primary_button.dart';
 import '../widgets/setup_count_selector.dart';
 
 class PlayerSetupPage extends StatefulWidget {
-  const PlayerSetupPage({required this.mode, this.isPremium = false, this.onStart, super.key});
+  const PlayerSetupPage({
+    required this.mode,
+    this.isPremium = false,
+    this.onStart,
+    super.key,
+  });
 
   final GameMode mode;
   final bool isPremium;
@@ -22,7 +28,10 @@ class PlayerSetupPage extends StatefulWidget {
 }
 
 class _PlayerSetupPageState extends State<PlayerSetupPage> {
-  late final PlayerSetupController _controller = PlayerSetupController(mode: widget.mode, isPremium: widget.isPremium);
+  late final PlayerSetupController _controller = PlayerSetupController(
+    mode: widget.mode,
+    isPremium: widget.isPremium,
+  );
   final Map<int, TextEditingController> _nameControllers = {};
   var _bottomMenuItem = GlobalBottomMenuItem.home;
 
@@ -52,7 +61,9 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
 
   void _syncNameControllers(List<PlayerConfig> players) {
     final activeIds = players.map((player) => player.id).toSet();
-    final removedIds = _nameControllers.keys.where((id) => !activeIds.contains(id)).toList(growable: false);
+    final removedIds = _nameControllers.keys
+        .where((id) => !activeIds.contains(id))
+        .toList(growable: false);
 
     for (final id in removedIds) {
       _nameControllers.remove(id)?.dispose();
@@ -78,35 +89,41 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
   void _onSubmit() {
     final submission = _controller.submit();
     if (submission == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Completa el nombre de todos los jugadores.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Completa el nombre de todos los jugadores.'),
+        ),
+      );
       return;
     }
 
-    widget.onStart?.call(submission);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          submission.mode.isFriends
-              ? 'Partida lista con ${submission.players.length} jugadores.'
-              : 'Partida lista con ${submission.pairs.length} parejas.',
-        ),
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => StartPointsPage(submission: submission),
       ),
     );
+    widget.onStart?.call(submission);
   }
 
   @override
   Widget build(BuildContext context) {
     final state = _controller.state;
-    final modeAccent = state.mode.isFriends ? const Color.fromARGB(255, 7, 135, 255) : const Color(0xFFE94494);
+    final modeAccent = state.mode.isFriends
+        ? const Color.fromARGB(255, 7, 135, 255)
+        : const Color(0xFFE94494);
     final backgroundAsset = state.mode.isFriends
         ? 'assets/background-setup-friends-mode.png'
         : 'assets/background-setup-couple-mode.png';
-    final badgeColor = state.mode.isFriends ? const Color.fromARGB(255, 7, 135, 255) : const Color(0xFFE94494);
+    final badgeColor = state.mode.isFriends
+        ? const Color.fromARGB(255, 7, 135, 255)
+        : const Color(0xFFE94494);
     final startGradient = state.mode.isFriends
-        ? const [Color(0xFF59B8FF), Color(0xFF266FB9)]
-        : const [Color(0xFFFF71B7), Color(0xFFD93D88)];
+        ? const [Color(0xFF5FC0FF), Color(0xFF2E6FC9)]
+        : const [Color(0xFFF574B9), Color(0xFFD93D88)];
 
     return Scaffold(
       extendBody: true,
@@ -120,13 +137,21 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
               children: [
                 const SizedBox(height: AppSpacing.sm),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                  ),
                   child: SizedBox(
                     height: 112,
                     child: Row(
                       children: [
                         Expanded(
-                          child: Center(child: Image.asset('assets/logo-+18.png', width: 160, fit: BoxFit.contain)),
+                          child: Center(
+                            child: Image.asset(
+                              'assets/logo-+18.png',
+                              width: 160,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
                         ),
                         const Spacer(),
                         _HeaderSideButton(
@@ -158,17 +183,24 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
                               children: [
                                 TextSpan(
                                   text: 'Numero',
-                                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                                    fontSize: 50 * 0.66,
-                                    fontWeight: FontWeight.w700,
-                                    color: modeAccent,
-                                  ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .displaySmall
+                                      ?.copyWith(
+                                        fontSize: 50 * 0.66,
+                                        fontWeight: FontWeight.w700,
+                                        color: modeAccent,
+                                      ),
                                 ),
                                 TextSpan(
                                   text: ' de ${state.countTitle}',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.displaySmall?.copyWith(fontSize: 50 * 0.66, fontWeight: FontWeight.w400),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .displaySmall
+                                      ?.copyWith(
+                                        fontSize: 50 * 0.66,
+                                        fontWeight: FontWeight.w400,
+                                      ),
                                 ),
                               ],
                             ),
@@ -187,18 +219,21 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
                         Text(
                           'Nombre de cada jugador',
                           textAlign: TextAlign.center,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.headlineSmall?.copyWith(fontSize: 34 * 0.45, fontWeight: FontWeight.w700),
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontSize: 34 * 0.45,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                         if (state.participantRangeLabel.isNotEmpty) ...[
                           const SizedBox(height: AppSpacing.xs),
                           Text(
                             state.participantRangeLabel,
                             textAlign: TextAlign.center,
-                            style: Theme.of(
-                              context,
-                            ).textTheme.titleMedium?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                ),
                           ),
                         ],
                         const SizedBox(height: AppSpacing.md),
@@ -210,7 +245,10 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
                             nameControllers: _nameControllers,
                             hasError: _controller.playerHasError,
                             onNameChanged: (playerId, value) =>
-                                _controller.updatePlayerName(playerId: playerId, value: value),
+                                _controller.updatePlayerName(
+                                  playerId: playerId,
+                                  value: value,
+                                ),
                           )
                         else
                           _CouplesPlayersList(
@@ -221,7 +259,10 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
                             nameControllers: _nameControllers,
                             hasError: _controller.playerHasError,
                             onNameChanged: (playerId, value) =>
-                                _controller.updatePlayerName(playerId: playerId, value: value),
+                                _controller.updatePlayerName(
+                                  playerId: playerId,
+                                  value: value,
+                                ),
                           ),
                         const SizedBox(height: AppSpacing.xl),
                         for (final theme in GameStyleTheme.values) ...[
@@ -231,17 +272,33 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
                             accentColor: theme.accentColor,
                             isSelected: state.selectedTheme == theme,
                             isLocked: state.themeIsLocked(theme),
-                            useCleanInframundoIcon: theme == GameStyleTheme.inframundo,
+                            useCleanInframundoIcon:
+                                theme == GameStyleTheme.inframundo,
                             onTap: () => _controller.selectTheme(theme),
                           ),
                           const SizedBox(height: AppSpacing.md),
                         ],
-                        if (!state.isPremium) ...[const _PremiumUpsellBanner(), const SizedBox(height: AppSpacing.xl)],
-                        PlayerSetupPrimaryButton(
-                          label: 'Comenzar',
-                          gradientColors: startGradient,
-                          enabled: state.canStart,
-                          onTap: _onSubmit,
+                        if (!state.isPremium) ...[
+                          const _PremiumUpsellBanner(),
+                          const SizedBox(height: AppSpacing.xl),
+                        ],
+                        Opacity(
+                          opacity: state.canStart ? 1 : 0.65,
+                          child: App3dPillButton(
+                            label: 'Comenzar',
+                            color: startGradient.first,
+                            gradientColors: startGradient,
+                            height: 76,
+                            depth: 4.8,
+                            borderRadius: 20,
+                            textStyle: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontSize: 41 * 0.46,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                            onTap: _onSubmit,
+                          ),
                         ),
                       ],
                     ),
@@ -258,7 +315,8 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
           setState(() {
             _bottomMenuItem = item;
           });
-          if (item == GlobalBottomMenuItem.home && Navigator.of(context).canPop()) {
+          if (item == GlobalBottomMenuItem.home &&
+              Navigator.of(context).canPop()) {
             Navigator.of(context).pop();
           }
         },
@@ -329,23 +387,39 @@ class _CouplesPlayersList extends StatelessWidget {
       children: [
         for (var pairIndex = 0; pairIndex < pairCount; pairIndex++) ...[
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.xs,
+            ),
             decoration: BoxDecoration(
-              color: const Color.fromARGB(255, 14, 14, 14).withValues(alpha: 0.55),
+              color: const Color.fromARGB(
+                255,
+                14,
+                14,
+                14,
+              ).withValues(alpha: 0.55),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
               'Pareja ${pairIndex + 1}',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: Colors.white),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Nombre de cada jugador',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: Colors.white),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          for (final player in players.where((candidate) => candidate.pairIndex == pairIndex)) ...[
+          for (final player in players.where(
+            (candidate) => candidate.pairIndex == pairIndex,
+          )) ...[
             PlayerNameCard(
               index: player.id,
               controller: nameControllers[player.id]!,
@@ -370,7 +444,12 @@ class _PremiumUpsellBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Image.asset('assets/logo-icon-premium-container.png', width: 54, height: 54, fit: BoxFit.contain),
+        Image.asset(
+          'assets/logo-icon-premium-container.png',
+          width: 54,
+          height: 54,
+          fit: BoxFit.contain,
+        ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text.rich(
@@ -379,11 +458,14 @@ class _PremiumUpsellBanner extends StatelessWidget {
                 const TextSpan(text: 'Hasta '),
                 TextSpan(
                   text: 'Premium',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleMedium?.copyWith(fontStyle: FontStyle.italic, fontWeight: FontWeight.w700),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                const TextSpan(text: ' y desbloquea los\ndemás estilos de juego'),
+                const TextSpan(
+                  text: ' y desbloquea los\ndemás estilos de juego',
+                ),
               ],
             ),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -417,9 +499,10 @@ class _PremiumUpsellBanner extends StatelessWidget {
               const SizedBox(width: AppSpacing.xxs),
               Text(
                 'Premium',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(color: const Color(0xFF865E00), fontWeight: FontWeight.w700),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: const Color(0xFF865E00),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -455,7 +538,10 @@ class _HeaderSideButton extends StatelessWidget {
                   const Color(0xFF071126).withValues(alpha: 0.58),
                 ],
               ),
-              border: Border.all(color: const Color(0xFF1176E3).withValues(alpha: 0.48), width: 1.2),
+              border: Border.all(
+                color: const Color(0xFF1176E3).withValues(alpha: 0.48),
+                width: 1.2,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFF0F66C9).withValues(alpha: 0.24),
@@ -466,7 +552,11 @@ class _HeaderSideButton extends StatelessWidget {
               ],
             ),
             child: Center(
-              child: Icon(Icons.chevron_left_rounded, size: 38, color: const Color(0xFF20A5FF).withValues(alpha: 0.95)),
+              child: Icon(
+                Icons.chevron_left_rounded,
+                size: 38,
+                color: const Color(0xFF20A5FF).withValues(alpha: 0.95),
+              ),
             ),
           ),
         ),

@@ -23,4 +23,9 @@ class AppColors {
 
   static const Color iconBubble = Color(0xFFFF58A0);
   static const Color iconBubbleShadow = Color(0x80E82676);
+
+  static const List<Color> winnerGradientTopBottom = [
+    Color(0xFFFAD716),
+    Color(0xFFFC8F00),
+  ];
 }
