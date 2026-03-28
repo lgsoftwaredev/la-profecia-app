@@ -1,0 +1,9 @@
+# Node
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+npm-debug.log*
+
+# Local env
+.env

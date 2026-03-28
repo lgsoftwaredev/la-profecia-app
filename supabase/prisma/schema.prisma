@@ -1,0 +1,394 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum GameModeCode {
+  FRIENDS
+  COUPLES
+}
+
+enum LevelCode {
+  CIELO
+  TIERRA
+  INFIERNO
+  INFRAMUNDO
+}
+
+enum SessionStatus {
+  ACTIVE
+  FINISHED
+  ABANDONED
+}
+
+enum TurnContentType {
+  QUESTION
+  CHALLENGE
+}
+
+enum TurnOutcome {
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum MatchWinnerKind {
+  PLAYER
+  PAIR
+}
+
+enum PenaltyKind {
+  PROPHECY
+  GROUP
+}
+
+enum SubmissionType {
+  QUESTION
+  CHALLENGE
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReviewDecision {
+  APPROVE
+  REJECT
+}
+
+enum Platform {
+  APP_STORE
+  PLAY_STORE
+  MANUAL
+}
+
+enum ProductType {
+  ONE_TIME
+  MONTHLY
+}
+
+enum PremiumAccessStatus {
+  ACTIVE
+  EXPIRED
+  CANCELED
+  TRIAL
+}
+
+model Profile {
+  id                 String               @id @db.Uuid
+  username           String?              @unique @db.VarChar(40)
+  displayName        String?              @db.VarChar(100)
+  email              String?              @unique
+  avatarUrl          String?
+  countryCode        String?              @db.VarChar(8)
+  isGuest            Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  preferences        UserPreference?
+  stats              UserStats?
+  sessionsOwned      GameSession[]        @relation("OwnerSessions")
+  submissions        UserSubmission[]
+  premiumAccesses    PremiumAccess[]
+  history            GameHistorySummary[]
+  reviewedSubmissions SubmissionReview[]  @relation("ReviewerReviews")
+  questionsCreated   Question[]
+  challengesCreated  Challenge[]
+}
+
+model UserPreference {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @db.Uuid
+  soundEnabled      Boolean  @default(true)
+  tutorialCompleted Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GameMode {
+  id         Int        @id @default(autoincrement())
+  code       GameModeCode @unique
+  label      String     @db.VarChar(40)
+  createdAt  DateTime   @default(now())
+  sessions   GameSession[]
+  questions  Question[]
+  challenges Challenge[]
+  submissions UserSubmission[]
+}
+
+model Level {
+  id          Int        @id @default(autoincrement())
+  code        LevelCode  @unique
+  label       String     @db.VarChar(40)
+  isPremium   Boolean    @default(false)
+  intensity   Int        @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  unlockRules LevelUnlockRule[]
+  sessions    GameSession[]
+  questions   Question[]
+  challenges  Challenge[]
+  submissions UserSubmission[]
+}
+
+model LevelUnlockRule {
+  id                      Int      @id @default(autoincrement())
+  levelId                 Int
+  requiredCompletedRounds Int      @default(0)
+  requiresPremium         Boolean  @default(true)
+  eliminateOnFailure      Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  level                   Level    @relation(fields: [levelId], references: [id], onDelete: Cascade)
+}
+
+model ChallengeCategory {
+  id          Int        @id @default(autoincrement())
+  slug        String     @unique @db.VarChar(64)
+  name        String     @db.VarChar(64)
+  description String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  questions   Question[]
+  challenges  Challenge[]
+  submissions UserSubmission[]
+}
+
+model Question {
+  id               BigInt    @id @default(autoincrement())
+  modeId           Int
+  levelId          Int?
+  categoryId       Int?
+  text             String
+  isOfficial       Boolean   @default(true)
+  isActive         Boolean   @default(true)
+  createdByUserId  String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  mode             GameMode  @relation(fields: [modeId], references: [id], onDelete: Restrict)
+  level            Level?    @relation(fields: [levelId], references: [id], onDelete: SetNull)
+  category         ChallengeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy        Profile?  @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  turns            SessionTurn[] @relation("TurnQuestion")
+  sourceSubmissions UserSubmission[] @relation("SubmissionQuestionSource")
+  sourcePenalties  FinalPenalty[] @relation("PenaltyQuestionSource")
+}
+
+model Challenge {
+  id               BigInt    @id @default(autoincrement())
+  modeId           Int
+  levelId          Int?
+  categoryId       Int?
+  text             String
+  isOfficial       Boolean   @default(true)
+  isActive         Boolean   @default(true)
+  createdByUserId  String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  mode             GameMode  @relation(fields: [modeId], references: [id], onDelete: Restrict)
+  level            Level?    @relation(fields: [levelId], references: [id], onDelete: SetNull)
+  category         ChallengeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy        Profile?  @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  turns            SessionTurn[] @relation("TurnChallenge")
+  sourceSubmissions UserSubmission[] @relation("SubmissionChallengeSource")
+}
+
+model GameSession {
+  id              String         @id @default(uuid()) @db.Uuid
+  ownerUserId     String?        @db.Uuid
+  modeId          Int
+  selectedLevelId Int?
+  status          SessionStatus  @default(ACTIVE)
+  startedAt       DateTime       @default(now())
+  endedAt         DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  owner           Profile?       @relation("OwnerSessions", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  mode            GameMode       @relation(fields: [modeId], references: [id], onDelete: Restrict)
+  selectedLevel   Level?         @relation(fields: [selectedLevelId], references: [id], onDelete: SetNull)
+  players         SessionPlayer[]
+  rounds          SessionRound[]
+  turns           SessionTurn[]
+  scores          SessionScore[]
+  finalJudgment   FinalJudgment?
+  history         GameHistorySummary[]
+}
+
+model SessionPlayer {
+  id            String        @id @default(uuid()) @db.Uuid
+  sessionId     String        @db.Uuid
+  displayName   String        @db.VarChar(80)
+  seatOrder     Int
+  pairIndex     Int?
+  isEliminated  Boolean       @default(false)
+  eliminatedAt  DateTime?
+  createdAt     DateTime      @default(now())
+  session       GameSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  turns         SessionTurn[]
+  scores        SessionScore[]
+  wonJudgments  FinalJudgment[] @relation("WinnerPlayer")
+  lostJudgments FinalJudgment[] @relation("LoserPlayer")
+
+  @@unique([sessionId, seatOrder])
+}
+
+model SessionRound {
+  id          String       @id @default(uuid()) @db.Uuid
+  sessionId   String       @db.Uuid
+  roundNumber Int
+  startedAt   DateTime     @default(now())
+  endedAt     DateTime?
+  session     GameSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  turns       SessionTurn[]
+
+  @@unique([sessionId, roundNumber])
+}
+
+model SessionTurn {
+  id               String          @id @default(uuid()) @db.Uuid
+  sessionId        String          @db.Uuid
+  roundId          String          @db.Uuid
+  playerId         String          @db.Uuid
+  contentType      TurnContentType
+  questionId       BigInt?
+  challengeId      BigInt?
+  outcome          TurnOutcome?
+  pointsDelta      Int             @default(0)
+  validatedByGroup Boolean?
+  createdAt        DateTime        @default(now())
+  session          GameSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  round            SessionRound    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  player           SessionPlayer   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  question         Question?       @relation("TurnQuestion", fields: [questionId], references: [id], onDelete: SetNull)
+  challenge        Challenge?      @relation("TurnChallenge", fields: [challengeId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId, roundId])
+}
+
+model SessionScore {
+  id        String        @id @default(uuid()) @db.Uuid
+  sessionId String        @db.Uuid
+  playerId  String        @db.Uuid
+  score     Int           @default(0)
+  updatedAt DateTime      @updatedAt
+  session   GameSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  player    SessionPlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, playerId])
+}
+
+model FinalJudgment {
+  id              String           @id @default(uuid()) @db.Uuid
+  sessionId       String           @unique @db.Uuid
+  winnerKind      MatchWinnerKind
+  winnerPlayerId  String?          @db.Uuid
+  winnerPairIndex Int?
+  loserPlayerId   String?          @db.Uuid
+  loserPairIndex  Int?
+  createdAt       DateTime         @default(now())
+  session         GameSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  winnerPlayer    SessionPlayer?   @relation("WinnerPlayer", fields: [winnerPlayerId], references: [id], onDelete: SetNull)
+  loserPlayer     SessionPlayer?   @relation("LoserPlayer", fields: [loserPlayerId], references: [id], onDelete: SetNull)
+  penalty         FinalPenalty?
+}
+
+model FinalPenalty {
+  id               String        @id @default(uuid()) @db.Uuid
+  judgmentId       String        @unique @db.Uuid
+  kind             PenaltyKind
+  penaltyText      String
+  sourceQuestionId BigInt?
+  createdAt        DateTime      @default(now())
+  judgment         FinalJudgment @relation(fields: [judgmentId], references: [id], onDelete: Cascade)
+  sourceQuestion   Question?     @relation("PenaltyQuestionSource", fields: [sourceQuestionId], references: [id], onDelete: SetNull)
+}
+
+model UserStats {
+  userId            String   @id @db.Uuid
+  matchesPlayed     Int      @default(0)
+  accumulatedScore  Int      @default(0)
+  wins              Int      @default(0)
+  losses            Int      @default(0)
+  updatedAt         DateTime @updatedAt
+  user              Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GameHistorySummary {
+  id         String      @id @default(uuid()) @db.Uuid
+  userId     String      @db.Uuid
+  sessionId  String      @db.Uuid
+  resultLabel String     @db.VarChar(40)
+  scoreDelta Int         @default(0)
+  playedAt   DateTime    @default(now())
+  user       Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session    GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sessionId])
+}
+
+model UserSubmission {
+  id                String           @id @default(uuid()) @db.Uuid
+  userId            String           @db.Uuid
+  type              SubmissionType
+  modeId            Int?
+  levelId           Int?
+  categoryId        Int?
+  sourceQuestionId  BigInt?
+  sourceChallengeId BigInt?
+  contentText       String
+  status            SubmissionStatus @default(PENDING)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  user              Profile          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mode              GameMode?        @relation(fields: [modeId], references: [id], onDelete: SetNull)
+  level             Level?           @relation(fields: [levelId], references: [id], onDelete: SetNull)
+  category          ChallengeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  sourceQuestion    Question?        @relation("SubmissionQuestionSource", fields: [sourceQuestionId], references: [id], onDelete: SetNull)
+  sourceChallenge   Challenge?       @relation("SubmissionChallengeSource", fields: [sourceChallengeId], references: [id], onDelete: SetNull)
+  reviews           SubmissionReview[]
+
+  @@index([status, createdAt])
+}
+
+model SubmissionReview {
+  id             String         @id @default(uuid()) @db.Uuid
+  submissionId   String         @db.Uuid
+  reviewerUserId String?        @db.Uuid
+  decision       ReviewDecision
+  reason         String?
+  createdAt      DateTime       @default(now())
+  submission     UserSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewer       Profile?       @relation("ReviewerReviews", fields: [reviewerUserId], references: [id], onDelete: SetNull)
+}
+
+model PremiumProduct {
+  id             String      @id @default(uuid()) @db.Uuid
+  storeProductId String      @unique
+  platform       Platform
+  type           ProductType
+  title          String
+  isActive       Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  accesses       PremiumAccess[]
+}
+
+model PremiumAccess {
+  id                    String              @id @default(uuid()) @db.Uuid
+  userId                String              @db.Uuid
+  productId             String?             @db.Uuid
+  platform              Platform
+  status                PremiumAccessStatus
+  startedAt             DateTime            @default(now())
+  expiresAt             DateTime?
+  originalTransactionId String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  user                  Profile             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product               PremiumProduct?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+}

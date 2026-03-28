@@ -1,0 +1,21 @@
+{
+  "name": "supabase",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Prisma schema and migrations for La Profecia Supabase",
+  "scripts": {
+    "prisma:format": "prisma format",
+    "prisma:validate": "prisma validate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:db:push": "prisma db push"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "devDependencies": {
+    "dotenv": "^17.2.3",
+    "prisma": "^7.6.0"
+  }
+}
