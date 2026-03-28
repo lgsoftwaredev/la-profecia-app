@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/global_bottom_menu.dart';
+import '../../../premium/presentation/pages/premium_menu_page.dart';
+import '../../../profile/presentation/pages/profile_page.dart';
+import '../../../settings/presentation/pages/settings_page.dart';
 import '../widgets/home_mode_carousel.dart';
 
 class HomePage extends StatefulWidget {
@@ -16,6 +19,25 @@ class _HomePageState extends State<HomePage> {
   var _currentItem = GlobalBottomMenuItem.home;
 
   void _onItemSelected(GlobalBottomMenuItem item) {
+    if (item == GlobalBottomMenuItem.ranking) {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const PremiumMenuPage()));
+      return;
+    }
+    if (item == GlobalBottomMenuItem.profile) {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const ProfilePage()));
+      return;
+    }
+    if (item == GlobalBottomMenuItem.settings) {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
+      return;
+    }
+
     setState(() {
       _currentItem = item;
     });
@@ -43,7 +65,11 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               children: [
                 const SizedBox(height: AppSpacing.sm),
-                Image.asset('assets/logo-+18.png', width: 168, fit: BoxFit.contain),
+                Image.asset(
+                  'assets/logo-+18.png',
+                  width: 168,
+                  fit: BoxFit.contain,
+                ),
                 const SizedBox(height: AppSpacing.xxl * 1.5),
                 const Expanded(child: HomeModeCarousel()),
               ],
@@ -51,7 +77,10 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      bottomNavigationBar: GlobalBottomMenu(currentItem: _currentItem, onItemSelected: _onItemSelected),
+      bottomNavigationBar: GlobalBottomMenu(
+        currentItem: _currentItem,
+        onItemSelected: _onItemSelected,
+      ),
     );
   }
 }
