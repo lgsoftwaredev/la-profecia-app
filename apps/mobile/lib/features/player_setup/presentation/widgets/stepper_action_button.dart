@@ -36,8 +36,12 @@ class _StepperActionButtonState extends State<StepperActionButton> {
   @override
   Widget build(BuildContext context) {
     final isInteractive = widget.enabled;
-    final borderColor = Colors.white.withValues(alpha: _isHovered ? 0.44 : 0.35);
-    final innerBorderColor = Colors.white.withValues(alpha: _isPressed ? 0.10 : 0.18);
+    final borderColor = Colors.white.withValues(
+      alpha: _isHovered ? 0.44 : 0.35,
+    );
+    final innerBorderColor = Colors.white.withValues(
+      alpha: _isPressed ? 0.10 : 0.18,
+    );
 
     final gradientColors = _isPressed
         ? const [Color(0xFF1A2D4A), Color(0xFF15243A)]
@@ -91,14 +95,21 @@ class _StepperActionButtonState extends State<StepperActionButton> {
                           offset: const Offset(0, 8),
                         ),
                         BoxShadow(
-                          color: const Color(0xFF4B8DDB).withValues(alpha: 0.12),
+                          color: const Color(
+                            0xFF4B8DDB,
+                          ).withValues(alpha: 0.12),
                           blurRadius: 18,
                           spreadRadius: -6,
                           offset: const Offset(0, 2),
                         ),
                       ],
                 child: Center(
-                  child: Icon(widget.icon, color: Colors.white.withValues(alpha: 0.96), size: 36, weight: 700),
+                  child: Icon(
+                    widget.icon,
+                    color: Colors.white.withValues(alpha: 0.96),
+                    size: 36,
+                    weight: 700,
+                  ),
                 ),
               ),
             ),

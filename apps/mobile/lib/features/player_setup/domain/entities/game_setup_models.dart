@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/game_rules.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
+import '../../../match_play/domain/entities/match_level.dart';
 
 enum GameStyleTheme { cielo, tierra, infierno, inframundo }
 
@@ -27,20 +29,52 @@ extension GameStyleThemeX on GameStyleTheme {
   };
 
   bool get isPremiumOnly => this != GameStyleTheme.cielo;
+
+  MatchLevel get toMatchLevel => switch (this) {
+    GameStyleTheme.cielo => MatchLevel.cielo,
+    GameStyleTheme.tierra => MatchLevel.tierra,
+    GameStyleTheme.infierno => MatchLevel.infierno,
+    GameStyleTheme.inframundo => MatchLevel.inframundo,
+  };
+}
+
+extension MatchLevelToGameStyleThemeX on MatchLevel {
+  GameStyleTheme get toGameStyleTheme => switch (this) {
+    MatchLevel.cielo => GameStyleTheme.cielo,
+    MatchLevel.tierra => GameStyleTheme.tierra,
+    MatchLevel.infierno => GameStyleTheme.infierno,
+    MatchLevel.inframundo => GameStyleTheme.inframundo,
+  };
 }
 
 class PlayerConfig {
-  const PlayerConfig({required this.id, required this.name, this.pairIndex});
+  const PlayerConfig({
+    required this.id,
+    required this.name,
+    this.pairIndex,
+    this.authUserId,
+    this.isAuthenticatedUser = false,
+  });
 
   final int id;
   final String name;
   final int? pairIndex;
+  final String? authUserId;
+  final bool isAuthenticatedUser;
 
-  PlayerConfig copyWith({int? id, String? name, int? pairIndex}) {
+  PlayerConfig copyWith({
+    int? id,
+    String? name,
+    int? pairIndex,
+    String? authUserId,
+    bool? isAuthenticatedUser,
+  }) {
     return PlayerConfig(
       id: id ?? this.id,
       name: name ?? this.name,
       pairIndex: pairIndex ?? this.pairIndex,
+      authUserId: authUserId ?? this.authUserId,
+      isAuthenticatedUser: isAuthenticatedUser ?? this.isAuthenticatedUser,
     );
   }
 }
@@ -62,13 +96,16 @@ class GameSetupState {
   final bool isPremium;
   final bool showValidationErrors;
 
-  int get minGroupCount => mode.isFriends ? 3 : 1;
-  int get maxGroupCount => mode.isFriends ? 10 : 4;
+  int get minGroupCount =>
+      mode.isFriends ? GameRules.minFriendsParticipants : GameRules.minCouples;
+  int get maxGroupCount =>
+      mode.isFriends ? GameRules.maxFriendsParticipants : GameRules.maxCouples;
   int get totalPlayers => mode.isFriends ? groupCount : groupCount * 2;
 
   String get countTitle => mode.isFriends ? 'jugadores' : 'parejas';
-  String get participantRangeLabel =>
-      mode.isFriends ? 'De 3 a 10 jugadores.' : '';
+  String get participantRangeLabel => mode.isFriends
+      ? 'De ${GameRules.minFriendsParticipants} a ${GameRules.maxFriendsParticipants} jugadores.'
+      : 'De ${GameRules.minCouples} a ${GameRules.maxCouples} parejas.';
 
   bool get canStart => players.every((player) => player.name.trim().isNotEmpty);
 

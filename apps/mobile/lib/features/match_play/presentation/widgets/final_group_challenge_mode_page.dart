@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/providers/app_providers.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
-import '../../../../core/widgets/global_bottom_menu.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../../game_mode_selection/presentation/pages/home_page.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
 import '../../../player_setup/presentation/pages/player_setup_page.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
 
-class FinalGroupChallengeModePage extends StatefulWidget {
+class FinalGroupChallengeModePage extends ConsumerStatefulWidget {
   const FinalGroupChallengeModePage({
     required this.submission,
     required this.punishedLabel,
@@ -21,45 +22,87 @@ class FinalGroupChallengeModePage extends StatefulWidget {
 
   final GameSetupSubmission submission;
   final String punishedLabel;
-  final ValueChanged<String>? onSendTap;
+  final Future<bool> Function(String)? onSendTap;
   final VoidCallback? onPlayAgainTap;
   final VoidCallback? onBackToHomeTap;
 
   @override
-  State<FinalGroupChallengeModePage> createState() => _FinalGroupChallengeModePageState();
+  ConsumerState<FinalGroupChallengeModePage> createState() =>
+      _FinalGroupChallengeModePageState();
 }
 
-class _FinalGroupChallengeModePageState extends State<FinalGroupChallengeModePage> {
-  var _bottomMenuItem = GlobalBottomMenuItem.home;
+class _FinalGroupChallengeModePageState
+    extends ConsumerState<FinalGroupChallengeModePage> {
   final _penaltyController = TextEditingController();
+  var _isSending = false;
 
   bool get _isFriendsMode => widget.submission.mode.isFriends;
 
-  Color get _modeAccent => _isFriendsMode ? const Color(0xFF2A9DFF) : const Color(0xFFE94494);
+  Color get _modeAccent =>
+      _isFriendsMode ? const Color(0xFF2A9DFF) : const Color(0xFFE94494);
 
-  String get _backgroundAsset =>
-      _isFriendsMode ? 'assets/background-setup-friends-mode.png' : 'assets/background-setup-couple-mode.png';
+  String get _backgroundAsset => _isFriendsMode
+      ? 'assets/background-setup-friends-mode.png'
+      : 'assets/background-setup-couple-mode.png';
 
-  List<Color> get _modeButtonGradient =>
-      _isFriendsMode ? const [Color(0xFF5FC0FF), Color(0xFF2E6FC9)] : const [Color(0xFFF574B9), Color(0xFFD93D88)];
+  List<Color> get _modeButtonGradient => _isFriendsMode
+      ? const [Color(0xFF5FC0FF), Color(0xFF2E6FC9)]
+      : const [Color(0xFFF574B9), Color(0xFFD93D88)];
 
   void _defaultPlayAgain() {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => PlayerSetupPage(mode: widget.submission.mode)),
+      MaterialPageRoute<void>(
+        builder: (_) => PlayerSetupPage(mode: widget.submission.mode),
+      ),
       (route) => false,
     );
   }
 
   void _defaultBackToHome() {
-    Navigator.of(
-      context,
-    ).pushAndRemoveUntil(MaterialPageRoute<void>(builder: (_) => const HomePage()), (route) => false);
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const HomePage()),
+      (route) => false,
+    );
   }
 
-  void _handleSend() {
+  Future<void> _handleSend() async {
+    if (_isSending) {
+      return;
+    }
+
     final text = _penaltyController.text.trim();
-    widget.onSendTap?.call(text);
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Escribe un castigo primero.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSending = true;
+    });
+
+    final success =
+        await (widget.onSendTap?.call(text) ??
+            ref.read(matchControllerProvider).saveFinalGroupPenalty(text));
+    if (!mounted) {
+      return;
+    }
+
     FocusScope.of(context).unfocus();
+    if (success) {
+      _defaultPlayAgain();
+      return;
+    }
+
+    setState(() {
+      _isSending = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('No se pudo guardar, debes iniciar sesión.'),
+      ),
+    );
   }
 
   @override
@@ -81,7 +124,10 @@ class _FinalGroupChallengeModePageState extends State<FinalGroupChallengeModePag
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [const Color(0x66050316), const Color(0xFF06020F).withValues(alpha: 0.96)],
+                colors: [
+                  const Color(0x66050316),
+                  const Color(0xFF06020F).withValues(alpha: 0.96),
+                ],
               ),
             ),
           ),
@@ -91,7 +137,10 @@ class _FinalGroupChallengeModePageState extends State<FinalGroupChallengeModePag
                 center: const Alignment(0, 0.05),
                 radius: 0.9,
                 colors: [
-                  (_isFriendsMode ? const Color(0xFF2562B8) : const Color(0xFFB90E32)).withValues(alpha: 0.52),
+                  (_isFriendsMode
+                          ? const Color(0xFF2562B8)
+                          : const Color(0xFFB90E32))
+                      .withValues(alpha: 0.52),
                   Colors.transparent,
                 ],
               ),
@@ -111,7 +160,11 @@ class _FinalGroupChallengeModePageState extends State<FinalGroupChallengeModePag
                         Expanded(
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: Image.asset('assets/logo-+18.png', width: 160, fit: BoxFit.contain),
+                            child: Image.asset(
+                              'assets/logo-+18.png',
+                              width: 160,
+                              fit: BoxFit.contain,
+                            ),
                           ),
                         ),
                         _HeaderSideButton(
@@ -127,47 +180,59 @@ class _FinalGroupChallengeModePageState extends State<FinalGroupChallengeModePag
                   ),
                   Expanded(
                     child: SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       padding: const EdgeInsets.only(bottom: 170),
                       child: Column(
                         children: [
                           const SizedBox(height: AppSpacing.sm),
                           Text(
                             'Juicio Final',
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: _modeAccent,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 48 * 0.68,
-                            ),
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
+                                  color: _modeAccent,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 48 * 0.68,
+                                ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             '${widget.punishedLabel} deberá cumplir el castigo\n'
                             'elegido por...',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 34 * 0.56,
-                              height: 1.14,
-                            ),
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 34 * 0.56,
+                                  height: 1.14,
+                                ),
                           ),
                           const SizedBox(height: AppSpacing.md),
                           Container(
                             height: 42,
-                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.lg,
+                            ),
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(999),
-                              color: const Color(0xFF171A21).withValues(alpha: 0.92),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.09), width: 1),
+                              color: const Color(
+                                0xFF171A21,
+                              ).withValues(alpha: 0.92),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.09),
+                                width: 1,
+                              ),
                             ),
                             child: Text(
                               'El grupo',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.94),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 30 * 0.58,
-                              ),
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.94),
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 30 * 0.58,
+                                  ),
                             ),
                           ),
                           const SizedBox(height: AppSpacing.md),
@@ -179,7 +244,9 @@ class _FinalGroupChallengeModePageState extends State<FinalGroupChallengeModePag
                               const Color.fromARGB(110, 18, 18, 18),
                             ],
                             borderColor: Colors.white.withValues(alpha: 0.28),
-                            innerBorderColor: Colors.white.withValues(alpha: 0.08),
+                            innerBorderColor: Colors.white.withValues(
+                              alpha: 0.08,
+                            ),
                             topHighlightOpacity: 0.1,
                             bottomShadeOpacity: 0.14,
                             padding: const EdgeInsets.fromLTRB(
@@ -190,21 +257,29 @@ class _FinalGroupChallengeModePageState extends State<FinalGroupChallengeModePag
                             ),
                             child: TextField(
                               controller: _penaltyController,
+                              onTapOutside: (_) =>
+                                  FocusManager.instance.primaryFocus?.unfocus(),
                               maxLines: null,
                               expands: true,
                               textAlignVertical: TextAlignVertical.top,
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.95),
-                                fontSize: 28 * 0.6,
-                                fontWeight: FontWeight.w500,
-                              ),
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.95),
+                                    fontSize: 28 * 0.6,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                               decoration: InputDecoration(
                                 hintText: 'Escribe el castigo',
-                                hintStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.48),
-                                  fontSize: 32 * 0.56,
-                                  fontWeight: FontWeight.w400,
-                                ),
+                                hintStyle: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.48,
+                                      ),
+                                      fontSize: 32 * 0.56,
+                                      fontWeight: FontWeight.w400,
+                                    ),
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.zero,
                               ),
@@ -220,27 +295,33 @@ class _FinalGroupChallengeModePageState extends State<FinalGroupChallengeModePag
                               height: 54,
                               depth: 4.0,
                               borderRadius: 18,
-                              textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 32 * 0.58,
-                              ),
-                              onTap: _handleSend,
+                              isLoading: _isSending,
+                              textStyle: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 32 * 0.58,
+                                  ),
+                              onTap: _isSending ? null : _handleSend,
                             ),
                           ),
                           const SizedBox(height: AppSpacing.xl * 1.45),
                           App3dPillButton(
                             label: 'Jugar de nuevo',
                             color: const Color(0xFFE9EBF1),
-                            gradientColors: const [Color(0xFFF7F8FA), Color(0xFFE4E7EE)],
+                            gradientColors: const [
+                              Color(0xFFF7F8FA),
+                              Color(0xFFE4E7EE),
+                            ],
                             height: 62,
                             depth: 4.4,
                             borderRadius: 16,
-                            textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: const Color(0xFF4D586D),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 32 * 0.58,
-                            ),
+                            textStyle: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: const Color(0xFF4D586D),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 32 * 0.58,
+                                ),
                             onTap: widget.onPlayAgainTap ?? _defaultPlayAgain,
                           ),
                           const SizedBox(height: AppSpacing.sm),
@@ -251,11 +332,12 @@ class _FinalGroupChallengeModePageState extends State<FinalGroupChallengeModePag
                             height: 62,
                             depth: 4.4,
                             borderRadius: 16,
-                            textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 32 * 0.58,
-                            ),
+                            textStyle: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 32 * 0.58,
+                                ),
                             onTap: widget.onBackToHomeTap ?? _defaultBackToHome,
                           ),
                         ],
@@ -267,17 +349,6 @@ class _FinalGroupChallengeModePageState extends State<FinalGroupChallengeModePag
             ),
           ),
         ],
-      ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _bottomMenuItem,
-        onItemSelected: (item) {
-          setState(() {
-            _bottomMenuItem = item;
-          });
-          if (item == GlobalBottomMenuItem.home) {
-            _defaultBackToHome();
-          }
-        },
       ),
     );
   }
@@ -308,11 +379,23 @@ class _HeaderSideButton extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [bright.withValues(alpha: 0.18), dark.withValues(alpha: 0.5)],
+                colors: [
+                  bright.withValues(alpha: 0.18),
+                  dark.withValues(alpha: 0.5),
+                ],
               ),
-              border: Border.all(color: accent.withValues(alpha: 0.54), width: 1),
+              border: Border.all(
+                color: accent.withValues(alpha: 0.54),
+                width: 1,
+              ),
             ),
-            child: Center(child: Icon(Icons.chevron_left_rounded, size: 32, color: accent.withValues(alpha: 0.95))),
+            child: Center(
+              child: Icon(
+                Icons.chevron_left_rounded,
+                size: 32,
+                color: accent.withValues(alpha: 0.95),
+              ),
+            ),
           ),
         ),
       ),

@@ -7,20 +7,24 @@ import '../../domain/entities/game_setup_models.dart';
 class StartPointsRouletteWheel extends StatefulWidget {
   const StartPointsRouletteWheel({
     required this.selectedTheme,
+    required this.availableThemes,
     required this.onThemeChanged,
     required this.onSpinCompleted,
     super.key,
   });
 
   final GameStyleTheme selectedTheme;
+  final List<GameStyleTheme> availableThemes;
   final ValueChanged<GameStyleTheme> onThemeChanged;
   final ValueChanged<GameStyleTheme> onSpinCompleted;
 
   @override
-  State<StartPointsRouletteWheel> createState() => _StartPointsRouletteWheelState();
+  State<StartPointsRouletteWheel> createState() =>
+      _StartPointsRouletteWheelState();
 }
 
-class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel> with SingleTickerProviderStateMixin {
+class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel>
+    with SingleTickerProviderStateMixin {
   static const _ringSize = 306.0;
   static const _wheelSize = 440.0;
   static const _themes = [
@@ -40,7 +44,10 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel> wit
 
   final _random = math.Random();
   late final AnimationController _controller =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 2400))
+      AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 2400),
+        )
         ..addListener(() => setState(() {}))
         ..addStatusListener(_handleStatus);
 
@@ -58,7 +65,8 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel> wit
   @override
   void didUpdateWidget(covariant StartPointsRouletteWheel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedTheme != widget.selectedTheme && !_controller.isAnimating) {
+    if (oldWidget.selectedTheme != widget.selectedTheme &&
+        !_controller.isAnimating) {
       _animateToTheme(widget.selectedTheme, extraTurns: 0, durationMs: 420);
     }
   }
@@ -87,7 +95,11 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel> wit
     return value < 0 ? value + fullTurn : value;
   }
 
-  double _rotationForTheme(GameStyleTheme theme, {required double from, required int extraTurns}) {
+  double _rotationForTheme(
+    GameStyleTheme theme, {
+    required double from,
+    required int extraTurns,
+  }) {
     final target = _pointerAngle - (_baseAngles[theme] ?? 0);
     var delta = _normalizeAngle(target) - _normalizeAngle(from);
     if (delta < 0) {
@@ -96,13 +108,23 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel> wit
     return from + delta + (extraTurns * math.pi * 2);
   }
 
-  void _animateToTheme(GameStyleTheme theme, {required int extraTurns, required int durationMs}) {
+  void _animateToTheme(
+    GameStyleTheme theme, {
+    required int extraTurns,
+    required int durationMs,
+  }) {
     _targetTheme = theme;
-    final end = _rotationForTheme(theme, from: _rotation, extraTurns: extraTurns);
-    _rotationAnimation = Tween<double>(
-      begin: _rotation,
-      end: end,
-    ).animate(CurvedAnimation(parent: _controller, curve: extraTurns > 0 ? Curves.easeOutCubic : Curves.easeOut));
+    final end = _rotationForTheme(
+      theme,
+      from: _rotation,
+      extraTurns: extraTurns,
+    );
+    _rotationAnimation = Tween<double>(begin: _rotation, end: end).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: extraTurns > 0 ? Curves.easeOutCubic : Curves.easeOut,
+      ),
+    );
     _controller.duration = Duration(milliseconds: durationMs);
     _controller.forward(from: 0);
   }
@@ -112,8 +134,15 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel> wit
       return;
     }
     _shouldOpenNextPage = true;
-    final nextTheme = _themes[_random.nextInt(_themes.length)];
-    _animateToTheme(nextTheme, extraTurns: 4 + _random.nextInt(3), durationMs: 2300 + _random.nextInt(400));
+    final candidates = widget.availableThemes.isEmpty
+        ? const [GameStyleTheme.cielo]
+        : widget.availableThemes;
+    final nextTheme = candidates[_random.nextInt(candidates.length)];
+    _animateToTheme(
+      nextTheme,
+      extraTurns: 4 + _random.nextInt(3),
+      durationMs: 2300 + _random.nextInt(400),
+    );
   }
 
   double get _displayRotation => _rotationAnimation?.value ?? _rotation;
@@ -182,8 +211,15 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel> wit
     return children;
   }
 
-  Offset _polarOffset({required Offset center, required double radius, required double angle}) {
-    return Offset(center.dx + (radius * math.cos(angle)), center.dy + (radius * math.sin(angle)));
+  Offset _polarOffset({
+    required Offset center,
+    required double radius,
+    required double angle,
+  }) {
+    return Offset(
+      center.dx + (radius * math.cos(angle)),
+      center.dy + (radius * math.sin(angle)),
+    );
   }
 
   _SectorVisualConfig _visualConfigFor(GameStyleTheme theme) => switch (theme) {
@@ -245,7 +281,13 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel> wit
             height: 332,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.50), blurRadius: 50, spreadRadius: 1)],
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.50),
+                  blurRadius: 50,
+                  spreadRadius: 1,
+                ),
+              ],
             ),
           ),
           SizedBox(
@@ -264,7 +306,10 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel> wit
             child: DecoratedBox(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF77FF69).withValues(alpha: 0.75), width: 0.9),
+                border: Border.all(
+                  color: const Color(0xFF77FF69).withValues(alpha: 0.75),
+                  width: 0.9,
+                ),
               ),
             ),
           ),
@@ -275,7 +320,12 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel> wit
               height: _wheelSize,
               child: Stack(
                 children: [
-                  Image.asset('assets/ruleta.png', width: _wheelSize, height: _wheelSize, fit: BoxFit.contain),
+                  Image.asset(
+                    'assets/ruleta.png',
+                    width: _wheelSize,
+                    height: _wheelSize,
+                    fit: BoxFit.contain,
+                  ),
                   ..._buildSegmentMarkers(),
                 ],
               ),
@@ -284,7 +334,12 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel> wit
           _Start3dButton(onTap: _spin),
           Positioned(
             bottom: 10,
-            child: Image.asset('assets/logo-icon-flecha-ruleta.png', width: 35, height: 28, fit: BoxFit.contain),
+            child: Image.asset(
+              'assets/logo-icon-flecha-ruleta.png',
+              width: 35,
+              height: 28,
+              fit: BoxFit.contain,
+            ),
           ),
         ],
       ),
@@ -388,7 +443,11 @@ class _Start3dButtonState extends State<_Start3dButton> {
                   shape: BoxShape.circle,
                   color: const Color(0xFF551738),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.45), blurRadius: 18, offset: const Offset(0, 8)),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
                   ],
                 ),
               ),
@@ -407,15 +466,25 @@ class _Start3dButtonState extends State<_Start3dButton> {
                     end: Alignment.bottomCenter,
                     colors: [Color(0xFFEA4D8C), Color(0xFF9A1A4D)],
                   ),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.32), width: 1.5),
-                  boxShadow: [BoxShadow(color: const Color(0xFFE8418A).withValues(alpha: 0.55), blurRadius: 22)],
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.32),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFE8418A).withValues(alpha: 0.55),
+                      blurRadius: 22,
+                    ),
+                  ],
                 ),
                 child: Center(
                   child: Text(
                     'Iniciar',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),

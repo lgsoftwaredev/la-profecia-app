@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../player_setup/domain/entities/game_setup_models.dart';
-import 'final_judgment_page.dart';
 import '../widgets/round_score_summary_mode_page.dart';
 
 class RoundScoreSummaryCouplePage extends StatelessWidget {
@@ -12,6 +11,8 @@ class RoundScoreSummaryCouplePage extends StatelessWidget {
     this.round = 1,
     this.gainedPoints = 10,
     this.didComplete = true,
+    this.endMatchOnNext = false,
+    required this.onNextRoundTap,
     super.key,
   });
 
@@ -21,6 +22,8 @@ class RoundScoreSummaryCouplePage extends StatelessWidget {
   final int round;
   final int gainedPoints;
   final bool didComplete;
+  final bool endMatchOnNext;
+  final VoidCallback onNextRoundTap;
 
   @override
   Widget build(BuildContext context) {
@@ -40,16 +43,7 @@ class RoundScoreSummaryCouplePage extends StatelessWidget {
       pairCardTopHighlightOpacity: 0.08,
       pairCardBottomShadeOpacity: 0.16,
       pairCardInnerBorderAlpha: 0.04,
-      onNextRoundTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => FinalJudgmentPage(
-              submission: submission,
-              scoresByPlayerId: scoresByPlayerId,
-            ),
-          ),
-        );
-      },
+      onNextRoundTap: onNextRoundTap,
     );
   }
 }

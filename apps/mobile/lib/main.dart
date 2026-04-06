@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'app/di/app_scope.dart';
+import 'app/providers/app_providers.dart';
 import 'core/theme/app_theme.dart';
 import 'features/tutorial/presentation/pages/splash_page.dart';
+import 'features/tutorial/presentation/pages/tutorial_page.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {}
+  final scope = await AppScope.bootstrap();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -16,7 +25,12 @@ void main() {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
-  runApp(const LaProfeciaApp());
+  runApp(
+    ProviderScope(
+      overrides: [appScopeProvider.overrideWithValue(scope)],
+      child: const LaProfeciaApp(),
+    ),
+  );
 }
 
 class LaProfeciaApp extends StatelessWidget {
@@ -26,8 +40,9 @@ class LaProfeciaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'La Profecia',
+      title: 'La Profecía: Verdad o Reto',
       theme: AppTheme.light(),
+      routes: {'/tutorial': (_) => const TutorialPage()},
       home: const SplashPage(),
     );
   }

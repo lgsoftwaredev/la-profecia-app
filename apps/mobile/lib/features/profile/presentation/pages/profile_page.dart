@@ -1,40 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/providers/app_providers.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/global_bottom_menu.dart';
-import '../../../auth/presentation/controllers/auth_session_store.dart';
 import '../../../auth/presentation/pages/login_page.dart';
-import '../../../game_mode_selection/presentation/pages/home_page.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../match_play/presentation/providers/match_providers.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
 import '../../../player_setup/presentation/widgets/level_card_frame.dart';
-import '../../../premium/presentation/pages/premium_menu_page.dart';
-import '../../../settings/presentation/pages/settings_page.dart';
+import '../../domain/entities/user_stats_summary.dart';
 
-class ProfilePage extends StatefulWidget {
+class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
+  ConsumerState<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
-  var _bottomMenuItem = GlobalBottomMenuItem.profile;
-  var _sessionReady = AuthSessionStore.hasSession;
+class _ProfilePageState extends ConsumerState<ProfilePage> {
   var _authFlowStarted = false;
-
-  static const _history = <_HistoryItem>[
-    _HistoryItem(won: true, date: '21/01/2026'),
-    _HistoryItem(won: true, date: '21/01/2026'),
-    _HistoryItem(won: false, date: '21/01/2026'),
-    _HistoryItem(won: false, date: '21/01/2026'),
-    _HistoryItem(won: true, date: '21/01/2026'),
-    _HistoryItem(won: false, date: '21/01/2026'),
-  ];
 
   @override
   void initState() {
     super.initState();
-    if (!_sessionReady) {
+    if (!ref.read(isAuthenticatedProvider)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _openLoginIfNeeded();
       });
@@ -42,7 +31,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _openLoginIfNeeded() async {
-    if (_authFlowStarted || _sessionReady || !mounted) {
+    if (_authFlowStarted || ref.read(isAuthenticatedProvider) || !mounted) {
       return;
     }
     _authFlowStarted = true;
@@ -53,10 +42,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (!mounted) {
       return;
     }
-    if (didLogin == true && AuthSessionStore.hasSession) {
-      setState(() {
-        _sessionReady = true;
-      });
+    if (didLogin == true && ref.read(isAuthenticatedProvider)) {
       return;
     }
     if (Navigator.of(context).canPop()) {
@@ -64,35 +50,44 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  void _onBottomMenuSelected(GlobalBottomMenuItem item) {
-    if (item == GlobalBottomMenuItem.home) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const HomePage()),
-        (route) => false,
-      );
-      return;
-    }
-    if (item == GlobalBottomMenuItem.ranking) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const PremiumMenuPage()));
-      return;
-    }
-    if (item == GlobalBottomMenuItem.settings) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
+  Future<void> _logout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Cerrar sesion'),
+          content: const Text('Estas seguro de que quieres cerrar sesion?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Cerrar sesion'),
+            ),
+          ],
+        );
+      },
+    );
+    if (shouldLogout != true || !mounted) {
       return;
     }
 
-    setState(() {
-      _bottomMenuItem = item;
-    });
+    await ref.read(authControllerProvider).signOut();
+    if (!mounted) {
+      return;
+    }
+    _openLoginIfNeeded();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_sessionReady) {
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    final session = ref.watch(authSessionProvider);
+    final summaryAsync = ref.watch(matchStatsSummaryProvider);
+
+    if (!isAuthenticated) {
       return Scaffold(
         extendBody: true,
         body: Stack(
@@ -178,11 +173,49 @@ class _ProfilePageState extends State<ProfilePage> {
                       child: Column(
                         children: [
                           const SizedBox(height: AppSpacing.sm),
-                          const _ProfileHeader(),
+                          _ProfileHeader(
+                            displayName: session?.displayName ?? 'Jugador',
+                            email: session?.email ?? 'sin-correo@local',
+                          ),
                           const SizedBox(height: AppSpacing.lg),
-                          const _StatsGrid(),
+                          summaryAsync.when(
+                            loading: () => const Padding(
+                              padding: EdgeInsets.symmetric(
+                                vertical: AppSpacing.xl,
+                              ),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                              ),
+                            ),
+                            error: (error, stackTrace) => _ProfileDataError(
+                              onRetry: () {
+                                ref.invalidate(matchStatsSummaryProvider);
+                              },
+                            ),
+                            data: (summary) => Column(
+                              children: [
+                                _StatsGrid(
+                                  matchesPlayed: summary.matchesPlayed,
+                                  accumulatedScore: summary.accumulatedScore,
+                                  wins: summary.wins,
+                                  losses: summary.losses,
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                _HistoryCard(
+                                  items: _toHistoryItems(summary.history),
+                                ),
+                              ],
+                            ),
+                          ),
                           const SizedBox(height: AppSpacing.md),
-                          _HistoryCard(items: _history),
+                          TextButton(
+                            onPressed: _logout,
+                            child: Text(
+                              'Cerrar sesion',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(color: Colors.white70),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -193,16 +226,51 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _bottomMenuItem,
-        onItemSelected: _onBottomMenuSelected,
-      ),
     );
+  }
+
+  List<_HistoryItem> _toHistoryItems(List<GameHistoryItem> history) {
+    return history
+        .map((item) {
+          final date = item.playedAt;
+          final day = date.day.toString().padLeft(2, '0');
+          final month = date.month.toString().padLeft(2, '0');
+          final year = date.year.toString();
+          final won = _didWinHistoryItem(item);
+          return _HistoryItem(won: won, date: '$day/$month/$year');
+        })
+        .toList(growable: false);
+  }
+
+  bool _didWinHistoryItem(GameHistoryItem item) {
+    final normalized = item.resultLabel.trim().toLowerCase();
+    if (normalized.contains('perdid') ||
+        normalized.contains('derrot') ||
+        normalized == 'loss' ||
+        normalized == 'lost') {
+      return false;
+    }
+    if (normalized.contains('ganad') ||
+        normalized.contains('victor') ||
+        normalized == 'win' ||
+        normalized == 'won') {
+      return true;
+    }
+    if (item.scoreDelta > 0) {
+      return true;
+    }
+    if (item.scoreDelta < 0) {
+      return false;
+    }
+    return false;
   }
 }
 
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader();
+  const _ProfileHeader({required this.displayName, required this.email});
+
+  final String displayName;
+  final String email;
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +303,7 @@ class _ProfileHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hola Miguel!',
+                'Hola $displayName',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: Colors.white.withValues(alpha: 0.96),
                   fontWeight: FontWeight.w700,
@@ -244,7 +312,7 @@ class _ProfileHeader extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                'miguel.castro@gmail.com',
+                email,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -262,51 +330,85 @@ class _ProfileHeader extends StatelessWidget {
 }
 
 class _StatsGrid extends StatelessWidget {
-  const _StatsGrid();
+  const _StatsGrid({
+    required this.matchesPlayed,
+    required this.accumulatedScore,
+    required this.wins,
+    required this.losses,
+  });
+
+  final int matchesPlayed;
+  final int accumulatedScore;
+  final int wins;
+  final int losses;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: const [
+      children: [
         Row(
           children: [
             Expanded(
               child: _StatCard(
-                value: '12',
+                value: '$matchesPlayed',
                 label: 'Partidas',
                 valueColor: Colors.white,
               ),
             ),
-            SizedBox(width: AppSpacing.md),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _StatCard(
-                value: '+125',
+                value: accumulatedScore >= 0
+                    ? '+$accumulatedScore'
+                    : '$accumulatedScore',
                 label: 'Score',
-                valueColor: Color(0xFFFFA127),
+                valueColor: const Color(0xFFFFA127),
               ),
             ),
           ],
         ),
-        SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.md),
         Row(
           children: [
             Expanded(
               child: _StatCard(
-                value: '7',
+                value: '$wins',
                 label: 'Victorias',
-                valueColor: Color(0xFF8DFF68),
+                valueColor: const Color(0xFF8DFF68),
               ),
             ),
-            SizedBox(width: AppSpacing.md),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _StatCard(
-                value: '5',
+                value: '$losses',
                 label: 'Derrotas',
-                valueColor: Color(0xFFFF4D49),
+                valueColor: const Color(0xFFFF4D49),
               ),
             ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+class _ProfileDataError extends StatelessWidget {
+  const _ProfileDataError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          'No se pudo cargar tu historial.',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: Colors.white.withValues(alpha: 0.8),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        TextButton(onPressed: onRetry, child: const Text('Reintentar')),
       ],
     );
   }

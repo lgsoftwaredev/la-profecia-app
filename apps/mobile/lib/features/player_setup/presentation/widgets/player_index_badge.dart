@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import 'premium_glass_surface.dart';
 
 class PlayerIndexBadge extends StatelessWidget {
-  const PlayerIndexBadge({required this.index, required this.accentColor, super.key});
+  const PlayerIndexBadge({
+    required this.index,
+    required this.accentColor,
+    super.key,
+  });
 
   final int index;
   final Color accentColor;
@@ -28,11 +32,20 @@ class PlayerIndexBadge extends StatelessWidget {
       topHighlightOpacity: 0.10,
       bottomShadeOpacity: 0.14,
       gradientColors: [start, end],
-      outerShadows: [BoxShadow(color: accentColor.withValues(alpha: 0.24), blurRadius: 16, offset: const Offset(0, 5))],
+      outerShadows: [
+        BoxShadow(
+          color: accentColor.withValues(alpha: 0.24),
+          blurRadius: 16,
+          offset: const Offset(0, 5),
+        ),
+      ],
       child: Center(
         child: Text(
           '$index',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: Colors.white),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
         ),
       ),
     );

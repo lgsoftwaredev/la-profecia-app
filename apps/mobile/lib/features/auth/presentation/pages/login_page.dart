@@ -1,67 +1,147 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/providers/app_providers.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/global_bottom_menu.dart';
-import '../../../game_mode_selection/presentation/pages/home_page.dart';
+import '../providers/auth_providers.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
-import '../../../premium/presentation/pages/premium_menu_page.dart';
-import '../../../settings/presentation/pages/settings_page.dart';
-import '../controllers/auth_session_store.dart';
 import 'register_page.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  var _bottomMenuItem = GlobalBottomMenuItem.profile;
+class _LoginPageState extends ConsumerState<LoginPage> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  var _obscurePassword = true;
 
-  void _onBottomMenuSelected(GlobalBottomMenuItem item) {
-    if (item == GlobalBottomMenuItem.home) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const HomePage()),
-        (route) => false,
-      );
-      return;
-    }
-    if (item == GlobalBottomMenuItem.ranking) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const PremiumMenuPage()));
-      return;
-    }
-    if (item == GlobalBottomMenuItem.settings) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
-      return;
-    }
-
-    setState(() {
-      _bottomMenuItem = item;
-    });
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   Future<void> _openRegister() async {
-    final didSignIn = await Navigator.of(
-      context,
-    ).push<bool>(MaterialPageRoute<bool>(builder: (_) => const RegisterPage()));
-    if (!mounted || didSignIn != true) {
+    final result = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(builder: (_) => const RegisterPage()),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (result != registerEmailConfirmationRequiredResult) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirma tu correo'),
+          content: const Text(
+            'Debe confirmar su email en su bandeja de correo.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Entendido'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _login() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Completa correo y contrasena.')),
+      );
+      return;
+    }
+    if (!_isValidEmail(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingresa un correo valido.')),
+      );
+      return;
+    }
+
+    final authController = ref.read(authControllerProvider);
+    final ok = await authController.signInWithEmail(
+      email: email,
+      password: password,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (!ok) {
+      final message =
+          authController.errorMessage ?? 'No se pudo iniciar sesion.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
       return;
     }
     Navigator.of(context).pop(true);
   }
 
-  void _login() {
-    AuthSessionStore.signIn();
+  bool _isValidEmail(String email) {
+    final regex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    return regex.hasMatch(email);
+  }
+
+  Future<void> _loginWithGoogle() async {
+    final authController = ref.read(authControllerProvider);
+    final ok = await authController.signInWithGoogle();
+    if (!mounted) {
+      return;
+    }
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            authController.errorMessage ?? 'No se pudo iniciar con Google.',
+          ),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).pop(true);
+  }
+
+  Future<void> _loginWithApple() async {
+    final authController = ref.read(authControllerProvider);
+    final ok = await authController.signInWithApple();
+    if (!mounted) {
+      return;
+    }
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            authController.errorMessage ?? 'No se pudo iniciar con Apple.',
+          ),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isSubmitting = ref.watch(isAuthLoadingProvider);
+    final showAppleButton =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS);
+
     return Scaffold(
       extendBody: true,
       body: Stack(
@@ -119,6 +199,8 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   Expanded(
                     child: SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       padding: const EdgeInsets.only(bottom: 170),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,16 +208,27 @@ class _LoginPageState extends State<LoginPage> {
                           const SizedBox(height: AppSpacing.sm),
                           _AuthLabel(text: 'Correo'),
                           const SizedBox(height: AppSpacing.xs),
-                          const _AuthInputField(
+                          _AuthInputField(
                             icon: Icons.mail_outline_rounded,
                             hintText: 'Correo',
+                            controller: _emailController,
                           ),
                           const SizedBox(height: AppSpacing.sm),
                           _AuthLabel(text: 'Escribe tu contraseña'),
                           const SizedBox(height: AppSpacing.xs),
-                          const _AuthInputField(
+                          _AuthInputField(
                             icon: Icons.lock_outline_rounded,
                             hintText: '*****',
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            trailingIcon: _obscurePassword
+                                ? Icons.visibility_off_rounded
+                                : Icons.visibility_rounded,
+                            onTrailingTap: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
                           ),
                           const SizedBox(height: AppSpacing.sm),
                           Align(
@@ -151,13 +244,19 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           _PrimaryAuthButton(
-                            text: 'Iniciar sesión',
+                            text: isSubmitting
+                                ? 'Cargando...'
+                                : 'Iniciar sesión',
                             onTap: _login,
                           ),
                           const SizedBox(height: AppSpacing.md),
                           const _DividerLabel(text: 'O Inicia'),
                           const SizedBox(height: AppSpacing.md),
-                          const _SocialButtonsRow(),
+                          _SocialButtonsRow(
+                            onGoogleTap: _loginWithGoogle,
+                            onAppleTap: _loginWithApple,
+                            showAppleButton: showAppleButton,
+                          ),
                           const SizedBox(height: AppSpacing.md),
                           Align(
                             child: GestureDetector(
@@ -198,10 +297,6 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ],
       ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _bottomMenuItem,
-        onItemSelected: _onBottomMenuSelected,
-      ),
     );
   }
 }
@@ -225,10 +320,21 @@ class _AuthLabel extends StatelessWidget {
 }
 
 class _AuthInputField extends StatelessWidget {
-  const _AuthInputField({required this.icon, required this.hintText});
+  const _AuthInputField({
+    required this.icon,
+    required this.hintText,
+    required this.controller,
+    this.trailingIcon,
+    this.onTrailingTap,
+    this.obscureText = false,
+  });
 
   final IconData icon;
   final String hintText;
+  final TextEditingController controller;
+  final IconData? trailingIcon;
+  final VoidCallback? onTrailingTap;
+  final bool obscureText;
 
   @override
   Widget build(BuildContext context) {
@@ -261,15 +367,42 @@ class _AuthInputField extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Text(
-              hintText,
+            child: TextField(
+              controller: controller,
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
+              obscureText: obscureText,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white.withValues(alpha: 0.40),
+                color: Colors.white.withValues(alpha: 0.88),
                 fontWeight: FontWeight.w500,
                 fontSize: 32 * 0.52,
               ),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: hintText,
+                hintStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.40),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 32 * 0.52,
+                ),
+              ),
             ),
           ),
+          if (trailingIcon != null && onTrailingTap != null)
+            IconButton(
+              onPressed: onTrailingTap,
+              icon: Icon(
+                trailingIcon,
+                size: 22,
+                color: Colors.white.withValues(alpha: 0.72),
+              ),
+            )
+          else if (trailingIcon != null)
+            Icon(
+              trailingIcon,
+              size: 22,
+              color: Colors.white.withValues(alpha: 0.72),
+            ),
         ],
       ),
     );
@@ -354,32 +487,52 @@ class _DividerLabel extends StatelessWidget {
 }
 
 class _SocialButtonsRow extends StatelessWidget {
-  const _SocialButtonsRow();
+  const _SocialButtonsRow({
+    required this.onGoogleTap,
+    required this.onAppleTap,
+    required this.showAppleButton,
+  });
+
+  final VoidCallback onGoogleTap;
+  final VoidCallback onAppleTap;
+  final bool showAppleButton;
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: const [
+      children: [
         Expanded(
           child: _SocialButton(
             asset: 'assets/logo-icon-google.png',
             dark: false,
+            onTap: onGoogleTap,
           ),
         ),
-        SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: _SocialButton(asset: 'assets/logo-icon-apple.png', dark: true),
-        ),
+        if (showAppleButton) ...[
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: _SocialButton(
+              asset: 'assets/logo-icon-apple.png',
+              dark: true,
+              onTap: onAppleTap,
+            ),
+          ),
+        ],
       ],
     );
   }
 }
 
 class _SocialButton extends StatelessWidget {
-  const _SocialButton({required this.asset, required this.dark});
+  const _SocialButton({
+    required this.asset,
+    required this.dark,
+    required this.onTap,
+  });
 
   final String asset;
   final bool dark;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -396,8 +549,20 @@ class _SocialButton extends StatelessWidget {
       innerBorderColor: Colors.white.withValues(alpha: dark ? 0.05 : 0.14),
       topHighlightOpacity: 0.10,
       bottomShadeOpacity: 0.10,
-      child: Center(
-        child: Image.asset(asset, width: 28, height: 28, fit: BoxFit.contain),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Center(
+            child: Image.asset(
+              asset,
+              width: 28,
+              height: 28,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
       ),
     );
   }

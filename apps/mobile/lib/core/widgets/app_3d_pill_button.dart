@@ -15,6 +15,7 @@ class App3dPillButton extends StatefulWidget {
     this.height = 44,
     this.depth = 3.5,
     this.borderRadius = 999,
+    this.isLoading = false,
     this.onTap,
     super.key,
   }) : assert(
@@ -35,6 +36,7 @@ class App3dPillButton extends StatefulWidget {
   final double height;
   final double depth;
   final double borderRadius;
+  final bool isLoading;
   final VoidCallback? onTap;
 
   @override
@@ -61,7 +63,15 @@ class _App3dPillButtonState extends State<App3dPillButton> {
 
   @override
   Widget build(BuildContext context) {
-    final topOffset = _isPressed ? widget.depth : 0.0;
+    final isEnabled = widget.onTap != null && !widget.isLoading;
+    if (!isEnabled && _isPressed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _setPressed(false);
+        }
+      });
+    }
+    final topOffset = _isPressed && isEnabled ? widget.depth : 0.0;
     final fallbackTopStart = _shiftLightness(widget.color, 0.08);
     final fallbackTopEnd = _shiftLightness(widget.color, -0.01);
     final gradientColors =
@@ -74,76 +84,91 @@ class _App3dPillButtonState extends State<App3dPillButton> {
           fontWeight: FontWeight.w700,
           height: 1,
         );
+    final spinnerColor = resolvedTextStyle?.color ?? const Color(0xFF4D586D);
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => _setPressed(true),
-      onTapUp: (_) => _setPressed(false),
-      onTapCancel: () => _setPressed(false),
-      onTap: widget.onTap,
-      child: SizedBox(
-        width: double.infinity,
-        height: widget.height + widget.depth,
-        child: Stack(
-          children: [
-            Positioned(
-              top: widget.depth,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: widget.height,
-                decoration: BoxDecoration(
-                  color: baseColor,
-                  borderRadius: BorderRadius.circular(widget.borderRadius),
-                ),
-              ),
-            ),
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 85),
-              curve: Curves.easeOut,
-              top: topOffset,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: widget.height,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(widget.borderRadius),
-                  gradient: LinearGradient(
-                    begin: widget.gradientBegin,
-                    end: widget.gradientEnd,
-                    colors: gradientColors,
+    return Opacity(
+      opacity: isEnabled ? 1 : 0.75,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: isEnabled ? (_) => _setPressed(true) : null,
+        onTapUp: isEnabled ? (_) => _setPressed(false) : null,
+        onTapCancel: isEnabled ? () => _setPressed(false) : null,
+        onTap: isEnabled ? widget.onTap : null,
+        child: SizedBox(
+          width: double.infinity,
+          height: widget.height + widget.depth,
+          child: Stack(
+            children: [
+              Positioned(
+                top: widget.depth,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: widget.height,
+                  decoration: BoxDecoration(
+                    color: baseColor,
+                    borderRadius: BorderRadius.circular(widget.borderRadius),
                   ),
-                  boxShadow: _isPressed
-                      ? const []
-                      : [
-                          BoxShadow(
-                            color: widget.color.withValues(alpha: 0.20),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                ),
-                child: Center(
-                  child: widget.leadingIcon == null
-                      ? Text(widget.label, style: resolvedTextStyle)
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              widget.leadingIcon,
-                              size: widget.leadingIconSize,
-                              color:
-                                  widget.leadingIconColor ??
-                                  resolvedTextStyle?.color,
-                            ),
-                            SizedBox(width: widget.leadingIconGap),
-                            Text(widget.label, style: resolvedTextStyle),
-                          ],
-                        ),
                 ),
               ),
-            ),
-          ],
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 85),
+                curve: Curves.easeOut,
+                top: topOffset,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: widget.height,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(widget.borderRadius),
+                    gradient: LinearGradient(
+                      begin: widget.gradientBegin,
+                      end: widget.gradientEnd,
+                      colors: gradientColors,
+                    ),
+                    boxShadow: _isPressed
+                        ? const []
+                        : [
+                            BoxShadow(
+                              color: widget.color.withValues(alpha: 0.20),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                  ),
+                  child: Center(
+                    child: widget.isLoading
+                        ? SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.4,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                spinnerColor,
+                              ),
+                            ),
+                          )
+                        : widget.leadingIcon == null
+                        ? Text(widget.label, style: resolvedTextStyle)
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                widget.leadingIcon,
+                                size: widget.leadingIconSize,
+                                color:
+                                    widget.leadingIconColor ??
+                                    resolvedTextStyle?.color,
+                              ),
+                              SizedBox(width: widget.leadingIconGap),
+                              Text(widget.label, style: resolvedTextStyle),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

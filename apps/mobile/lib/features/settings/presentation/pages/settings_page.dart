@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/global_bottom_menu.dart';
-import '../../../game_mode_selection/presentation/pages/home_page.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
-import '../../../premium/presentation/pages/premium_menu_page.dart';
-import '../../../profile/presentation/pages/profile_page.dart';
+import '../../../tutorial/presentation/pages/tutorial_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -15,34 +12,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  var _bottomMenuItem = GlobalBottomMenuItem.settings;
   var _soundEnabled = true;
-
-  void _onBottomMenuSelected(GlobalBottomMenuItem item) {
-    if (item == GlobalBottomMenuItem.home) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const HomePage()),
-        (route) => false,
-      );
-      return;
-    }
-    if (item == GlobalBottomMenuItem.ranking) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const PremiumMenuPage()));
-      return;
-    }
-    if (item == GlobalBottomMenuItem.profile) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const ProfilePage()));
-      return;
-    }
-
-    setState(() {
-      _bottomMenuItem = item;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -120,9 +90,17 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ),
                           const SizedBox(height: AppSpacing.xl),
-                          const _SettingsItemRow(
+                          _SettingsItemRow(
                             iconAsset: 'assets/logo-icon-ver-tutorial.png',
                             title: 'Ver tutorial',
+                            onTap: () {
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const TutorialPage(),
+                                ),
+                                (route) => false,
+                              );
+                            },
                           ),
                           const SizedBox(height: AppSpacing.xl),
                           const _SettingsItemRow(
@@ -169,10 +147,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _bottomMenuItem,
-        onItemSelected: _onBottomMenuSelected,
-      ),
     );
   }
 }
@@ -183,16 +157,18 @@ class _SettingsItemRow extends StatelessWidget {
     required this.title,
     this.premiumSubtitle = false,
     this.trailing,
+    this.onTap,
   });
 
   final String iconAsset;
   final String title;
   final bool premiumSubtitle;
   final Widget? trailing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return PremiumGlassSurface(
+    final item = PremiumGlassSurface(
       height: 74,
       borderRadius: BorderRadius.circular(20),
       gradientColors: [
@@ -276,6 +252,19 @@ class _SettingsItemRow extends StatelessWidget {
           ),
           trailing ?? const SizedBox.shrink(),
         ],
+      ),
+    );
+
+    if (onTap == null) {
+      return item;
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: item,
       ),
     );
   }

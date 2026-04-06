@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
+import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../domain/entities/game_mode.dart';
 import '../../../player_setup/presentation/pages/player_setup_page.dart';
 
-class HomeModeCarousel extends StatefulWidget {
+class HomeModeCarousel extends ConsumerStatefulWidget {
   const HomeModeCarousel({super.key});
 
   @override
-  State<HomeModeCarousel> createState() => _HomeModeCarouselState();
+  ConsumerState<HomeModeCarousel> createState() => _HomeModeCarouselState();
 }
 
-class _HomeModeCarouselState extends State<HomeModeCarousel> {
+class _HomeModeCarouselState extends ConsumerState<HomeModeCarousel> {
   late final PageController _pageController = PageController(
     viewportFraction: 0.72,
   );
@@ -47,6 +49,8 @@ class _HomeModeCarouselState extends State<HomeModeCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    final isPremium = ref.watch(premiumAccessProvider);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = (constraints.maxWidth * 0.86).clamp(250.0, 312.0);
@@ -88,7 +92,10 @@ class _HomeModeCarouselState extends State<HomeModeCarousel> {
                           child: SizedBox(
                             width: cardWidth,
                             height: cardHeight,
-                            child: _HomeModeCard(card: card),
+                            child: _HomeModeCard(
+                              card: card,
+                              isPremium: isPremium,
+                            ),
                           ),
                         ),
                       ),
@@ -125,9 +132,10 @@ class _HomeModeCardData {
 }
 
 class _HomeModeCard extends StatelessWidget {
-  const _HomeModeCard({required this.card});
+  const _HomeModeCard({required this.card, required this.isPremium});
 
   final _HomeModeCardData card;
+  final bool isPremium;
 
   @override
   Widget build(BuildContext context) {
@@ -181,7 +189,8 @@ class _HomeModeCard extends StatelessWidget {
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => PlayerSetupPage(mode: card.mode),
+                    builder: (_) =>
+                        PlayerSetupPage(mode: card.mode, isPremium: isPremium),
                   ),
                 );
               },

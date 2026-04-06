@@ -20,12 +20,18 @@ class TutorialThirdView extends StatelessWidget {
             const SizedBox(height: AppSpacing.lg),
             Text.rich(
               TextSpan(
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontSize: 25, fontWeight: FontWeight.w700),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontSize: 25,
+                  fontWeight: FontWeight.w700,
+                ),
                 children: const [
                   TextSpan(text: '4 '),
                   TextSpan(
                     text: 'NIVELES',
-                    style: TextStyle(color: AppColors.primary, fontStyle: FontStyle.italic),
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ],
               ),
@@ -34,7 +40,10 @@ class TutorialThirdView extends StatelessWidget {
             Text(
               'Tú decides qué tan lejos llegas.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 16, color: Colors.white),
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontSize: 16,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
             const _TutorialLevelCard(
@@ -55,7 +64,8 @@ class TutorialThirdView extends StatelessWidget {
               characterAsset: 'assets/tutorial-3-tierra.png',
               levelName: 'TIERRA',
               badgeText: 'Premium',
-              description: 'Las preguntas ya pesan. Empiezan las miradas raras.',
+              description:
+                  'Las preguntas ya pesan. Empiezan las miradas raras.',
               cardHeight: 132,
             ),
             const SizedBox(height: AppSpacing.xxl),
@@ -80,8 +90,10 @@ class TutorialThirdView extends StatelessWidget {
               levelName: 'INFRAMUNDO',
               badgeText: 'Premium',
               showNewBadge: true,
-              description: 'No hay filtros.\nNo hay excusas.\nSolo personas que se atreven...',
-              highlightText: 'Aquí no puedes decir NO a nada o te sales del juego',
+              description:
+                  'No hay filtros.\nNo hay excusas.\nSolo personas que se atreven...',
+              highlightText:
+                  'Aquí no puedes decir NO a nada o te sales del juego',
               characterWidth: 148,
               cardHeight: 182,
             ),
@@ -89,7 +101,9 @@ class TutorialThirdView extends StatelessWidget {
             Text(
               'Una vez bajas... no vuelves igual.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 18),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(fontSize: 18),
             ),
           ],
         ),
@@ -133,10 +147,18 @@ class _TutorialLevelCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isInframundo = levelName == 'INFRAMUNDO';
     final isInfierno = levelName == 'INFIERNO';
-    final leftCharacterOffset = isInfierno ? const Offset(-15, 3) : const Offset(5, 0);
-    final leftCharacterHeight = isInfierno ? characterWidth * 1.5 : characterWidth * 1.3;
-    final rightCharacterOffset = isInframundo ? const Offset(3, 0) : const Offset(8, 0);
-    final rightCharacterHeight = isInframundo ? characterWidth * 1.3 : characterWidth * 1.5;
+    final leftCharacterOffset = isInfierno
+        ? const Offset(-15, 3)
+        : const Offset(5, 0);
+    final leftCharacterHeight = isInfierno
+        ? characterWidth * 1.5
+        : characterWidth * 1.3;
+    final rightCharacterOffset = isInframundo
+        ? const Offset(3, 0)
+        : const Offset(8, 0);
+    final rightCharacterHeight = isInframundo
+        ? characterWidth * 1.3
+        : characterWidth * 1.5;
     const outerRadius = 20.0;
     const borderThickness = 1.35;
     const borderStops = [0.0, 0.28, 0.62, 1.0];
@@ -171,7 +193,9 @@ class _TutorialLevelCard extends StatelessWidget {
             child: Container(
               margin: const EdgeInsets.all(borderThickness),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(outerRadius - borderThickness),
+                borderRadius: BorderRadius.circular(
+                  outerRadius - borderThickness,
+                ),
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -185,7 +209,9 @@ class _TutorialLevelCard extends StatelessWidget {
                   Positioned.fill(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(outerRadius - borderThickness),
+                        borderRadius: BorderRadius.circular(
+                          outerRadius - borderThickness,
+                        ),
                         gradient: LinearGradient(
                           begin: Alignment.topRight,
                           end: const Alignment(-1, 0),
@@ -205,7 +231,12 @@ class _TutorialLevelCard extends StatelessWidget {
                       if (characterOnLeft) SizedBox(width: characterWidth),
                       Expanded(
                         child: Padding(
-                          padding: EdgeInsets.fromLTRB(characterOnLeft ? 20 : 14, 12, characterOnLeft ? 14 : 8, 12),
+                          padding: EdgeInsets.fromLTRB(
+                            characterOnLeft ? 20 : 14,
+                            12,
+                            characterOnLeft ? 14 : 8,
+                            12,
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -221,11 +252,17 @@ class _TutorialLevelCard extends StatelessWidget {
                                   Expanded(
                                     child: Text.rich(
                                       TextSpan(
-                                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.05),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyLarge
+                                            ?.copyWith(height: 1.05),
                                         children: [
                                           const TextSpan(
                                             text: 'Nivel\n',
-                                            style: TextStyle(fontStyle: FontStyle.italic, fontWeight: FontWeight.w500),
+                                            style: TextStyle(
+                                              fontStyle: FontStyle.italic,
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                           ),
                                           TextSpan(
                                             text: levelName,
@@ -242,32 +279,42 @@ class _TutorialLevelCard extends StatelessWidget {
                                   if (trailingLabel != null)
                                     Text(
                                       trailingLabel!,
-                                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                        fontSize: 16,
-                                        fontStyle: FontStyle.italic,
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyLarge
+                                          ?.copyWith(
+                                            fontSize: 16,
+                                            fontStyle: FontStyle.italic,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                     ),
                                 ],
                               ),
                               const SizedBox(height: AppSpacing.xs),
                               Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.black.withValues(alpha: 0.3),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text.rich(
                                   TextSpan(
-                                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 13, height: 1.08),
+                                    style: Theme.of(context).textTheme.bodyLarge
+                                        ?.copyWith(fontSize: 13, height: 1.08),
                                     children: [
                                       TextSpan(text: description),
                                       if (highlightText != null) ...[
                                         const TextSpan(text: '\n'),
                                         TextSpan(
                                           text: highlightText!,
-                                          style: TextStyle(color: titleColor, fontWeight: FontWeight.w700),
+                                          style: TextStyle(
+                                            color: titleColor,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
                                       ],
                                     ],
@@ -278,7 +325,8 @@ class _TutorialLevelCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (!characterOnLeft) SizedBox(width: characterWidth - 30),
+                      if (!characterOnLeft)
+                        SizedBox(width: characterWidth - 30),
                     ],
                   ),
                   if (characterOnLeft)
@@ -333,14 +381,21 @@ class _TutorialLevelCard extends StatelessWidget {
           ),
           if (badgeText != null)
             isInfierno
-                ? Positioned(top: -12, right: 12, child: _TutorialPremiumBadge(text: badgeText!))
+                ? Positioned(
+                    top: -12,
+                    right: 12,
+                    child: _TutorialPremiumBadge(text: badgeText!),
+                  )
                 : Positioned(
                     top: -12,
                     left: 0,
                     right: 0,
-                    child: Center(child: _TutorialPremiumBadge(text: badgeText!)),
+                    child: Center(
+                      child: _TutorialPremiumBadge(text: badgeText!),
+                    ),
                   ),
-          if (showNewBadge) const Positioned(top: -8, left: -6, child: _TutorialNewBadge()),
+          if (showNewBadge)
+            const Positioned(top: -8, left: -6, child: _TutorialNewBadge()),
         ],
       ),
     );
@@ -359,12 +414,23 @@ class _TutorialPremiumBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFDE8D00),
         borderRadius: BorderRadius.circular(10),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset('assets/premium-icon-logo.png', width: 18, height: 12, fit: BoxFit.contain),
+          Image.asset(
+            'assets/premium-icon-logo.png',
+            width: 18,
+            height: 12,
+            fit: BoxFit.contain,
+          ),
           const SizedBox(width: 5),
           Text(
             text,
@@ -391,11 +457,16 @@ class _TutorialNewBadge extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(999),
-          gradient: const LinearGradient(colors: [Color(0xFF8B1EFF), Color(0xFFE82676)]),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF8B1EFF), Color(0xFFE82676)],
+          ),
         ),
         child: Text(
           'Nuevo',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700, fontSize: 15 / 1.35),
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            fontSize: 15 / 1.35,
+          ),
         ),
       ),
     );

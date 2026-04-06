@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/providers/app_providers.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
-import '../../../../core/widgets/global_bottom_menu.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
+import '../../../game_mode_selection/presentation/pages/home_page.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
+import '../providers/match_providers.dart';
+import '../utils/active_player_name_resolver.dart';
 import '../../domain/entities/truth_or_dare_option.dart';
+import '../../domain/entities/match_turn.dart';
 import 'round_score_summary_page.dart';
 
-class TruthOrDareTurnPage extends StatefulWidget {
+class TruthOrDareTurnPage extends ConsumerStatefulWidget {
   const TruthOrDareTurnPage({
     required this.submission,
     required this.option,
     this.round = 1,
     this.points = 0,
+    this.initialTurn,
     super.key,
   });
 
@@ -21,94 +27,109 @@ class TruthOrDareTurnPage extends StatefulWidget {
   final TruthOrDareOption option;
   final int round;
   final int points;
+  final MatchTurn? initialTurn;
 
   @override
-  State<TruthOrDareTurnPage> createState() => _TruthOrDareTurnPageState();
+  ConsumerState<TruthOrDareTurnPage> createState() =>
+      _TruthOrDareTurnPageState();
 }
 
-class _TruthOrDareTurnPageState extends State<TruthOrDareTurnPage> {
-  var _bottomMenuItem = GlobalBottomMenuItem.home;
+class _TruthOrDareTurnPageState extends ConsumerState<TruthOrDareTurnPage> {
+  var _isResolvingTurn = false;
 
-  String get _backgroundAsset => widget.submission.mode.isFriends
+  GameSetupSubmission get _submission =>
+      ref.read(activeSetupSubmissionProvider) ?? widget.submission;
+
+  String get _backgroundAsset => _submission.mode.isFriends
       ? 'assets/background-setup-friends-mode.png'
       : 'assets/background-setup-couple-mode.png';
 
-  Color get _modeAccent => widget.submission.mode.isFriends
+  Color get _modeAccent => _submission.mode.isFriends
       ? const Color(0xFF0787FF)
       : const Color(0xFFE94494);
 
   String get _playerName {
-    for (final player in widget.submission.players) {
-      final name = player.name.trim();
-      if (name.isNotEmpty) {
-        return name;
-      }
-    }
-    return 'Jugador';
+    final session = ref.read(matchSessionProvider);
+    final currentPlayerId = _activePlayerId;
+    return resolveActivePlayerName(
+      session: session,
+      submission: _submission,
+      activeParticipantId: currentPlayerId,
+      fallback: ActivePlayerNameFallback.turn,
+    );
   }
 
   String get _promptText => switch (widget.option) {
     TruthOrDareOption.verdad =>
-      'Describe el momento más\nintenso que has vivido...\n\nSin suavizar nada.',
+      (widget.initialTurn ?? ref.read(matchCurrentTurnProvider))?.promptText ??
+          'Describe el momento mas intenso que has vivido.',
     TruthOrDareOption.reto =>
-      'Acepta este reto frente\na todos.\n\nNada de echarte atrás.',
+      (widget.initialTurn ?? ref.read(matchCurrentTurnProvider))?.promptText ??
+          'Acepta este reto frente a todos.',
   };
 
   int get _activePlayerId {
-    for (final player in widget.submission.players) {
-      if (player.name.trim().isNotEmpty) {
-        return player.id;
-      }
+    final currentTurn =
+        widget.initialTurn ?? ref.read(matchCurrentTurnProvider);
+    if (currentTurn != null) {
+      return currentTurn.participantId;
     }
-    return widget.submission.players.isNotEmpty
-        ? widget.submission.players.first.id
-        : 1;
+
+    final session = ref.read(matchSessionProvider);
+    if (session != null) {
+      return session.currentParticipantId;
+    }
+
+    return _submission.players.isNotEmpty ? _submission.players.first.id : 1;
   }
 
-  Map<int, int> _demoScores({required bool didComplete}) {
-    final ids = widget.submission.players
-        .map((player) => player.id)
-        .toList(growable: false);
-    if (ids.isEmpty) {
-      return const {};
+  int get _currentPoints =>
+      ref.read(matchScoresProvider)[_activePlayerId] ?? widget.points;
+
+  Future<void> _openRoundScoreSummary({required bool didComplete}) async {
+    if (_isResolvingTurn) {
+      return;
+    }
+    setState(() {
+      _isResolvingTurn = true;
+    });
+
+    final submission = _submission;
+    final controller = ref.read(matchControllerProvider);
+    final resolution = await controller.resolveCurrentTurn(
+      didComplete: didComplete,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (resolution == null) {
+      setState(() {
+        _isResolvingTurn = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo registrar el resultado.')),
+      );
+      return;
     }
 
-    if (widget.submission.mode.isFriends) {
-      final values = [30, 0, 5, 0, 0, 0, 0, 0];
-      final map = <int, int>{};
-      for (var i = 0; i < ids.length; i++) {
-        map[ids[i]] = values[i < values.length ? i : values.length - 1];
-      }
-      map[_activePlayerId] = didComplete ? 10 : -10;
-      return map;
-    }
-
-    final hasMultiplePairs = widget.submission.pairs.length > 1;
-    if (hasMultiplePairs) {
-      final values = [30, 0, 30, 30, 0, 0, 0, 0];
-      final map = <int, int>{};
-      for (var i = 0; i < ids.length; i++) {
-        map[ids[i]] = values[i < values.length ? i : values.length - 1];
-      }
-      map[_activePlayerId] = didComplete ? 10 : -10;
-      return map;
-    }
-
-    final map = <int, int>{ids.first: 30, if (ids.length > 1) ids[1]: 0};
-    map[_activePlayerId] = didComplete ? 10 : -10;
-    return map;
-  }
-
-  void _openRoundScoreSummary({required bool didComplete}) {
-    Navigator.of(context).push(
+    final isFinished = controller.session?.isFinished ?? false;
+    final navigator = Navigator.of(context);
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        builder: (_) => const HomePage(skipActiveMatchDialog: true),
+      ),
+      (route) => false,
+    );
+    navigator.push(
       MaterialPageRoute<void>(
         builder: (_) => RoundScoreSummaryPage(
-          submission: widget.submission,
-          completedPlayerId: _activePlayerId,
-          scoresByPlayerId: _demoScores(didComplete: didComplete),
-          round: widget.round,
-          gainedPoints: 10,
+          submission: submission,
+          completedPlayerId: resolution.completedPlayerId,
+          scoresByPlayerId: controller.scoresByPlayerId,
+          round: resolution.round,
+          gainedPoints: resolution.pointsDelta,
           didComplete: didComplete,
+          endMatchOnNext: isFinished,
         ),
       ),
     );
@@ -116,7 +137,16 @@ class _TruthOrDareTurnPageState extends State<TruthOrDareTurnPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeAccent = widget.submission.selectedTheme.accentColor;
+    final submission =
+        ref.watch(activeSetupSubmissionProvider) ?? widget.submission;
+    ref.watch(matchSessionProvider);
+    ref.watch(matchCurrentTurnProvider);
+    ref.watch(matchScoresProvider);
+    ref.watch(matchPendingLevelProvider);
+    final selectedTheme =
+        ref.read(matchPendingLevelProvider)?.toGameStyleTheme ??
+        submission.selectedTheme;
+    final themeAccent = selectedTheme.accentColor;
 
     return Scaffold(
       extendBody: true,
@@ -196,11 +226,10 @@ class _TruthOrDareTurnPageState extends State<TruthOrDareTurnPage> {
                                 ),
                           ),
                           const SizedBox(height: AppSpacing.sm),
-                          _PointsChip(points: widget.points),
+                          _PointsChip(points: _currentPoints),
                           const SizedBox(height: AppSpacing.xl),
                           _PromptCard(
-                            iconAsset:
-                                widget.submission.selectedTheme.iconAsset,
+                            iconAsset: selectedTheme.iconAsset,
                             accent: themeAccent,
                             promptText: _promptText,
                           ),
@@ -221,6 +250,7 @@ class _TruthOrDareTurnPageState extends State<TruthOrDareTurnPage> {
                                   height: 70,
                                   depth: 4.4,
                                   borderRadius: 20,
+                                  isLoading: _isResolvingTurn,
                                   textStyle: Theme.of(context)
                                       .textTheme
                                       .titleLarge
@@ -229,22 +259,24 @@ class _TruthOrDareTurnPageState extends State<TruthOrDareTurnPage> {
                                         fontWeight: FontWeight.w600,
                                         fontSize: 32 * 0.58,
                                       ),
-                                  onTap: () =>
-                                      _openRoundScoreSummary(didComplete: true),
+                                  onTap: _isResolvingTurn
+                                      ? null
+                                      : () => _openRoundScoreSummary(
+                                          didComplete: true,
+                                        ),
                                 ),
                               ),
                               const SizedBox(width: AppSpacing.sm),
                               Expanded(
                                 child: App3dPillButton(
                                   label: 'Me dio miedo',
-                                  color: widget.submission.mode.isFriends
+                                  color: submission.mode.isFriends
                                       ? const Color(0xFF5FC0FF)
                                       : const Color(0xFFF574B9),
                                   leadingIcon: Icons.close_rounded,
                                   leadingIconColor: Colors.white,
                                   leadingIconSize: 22,
-                                  gradientColors:
-                                      widget.submission.mode.isFriends
+                                  gradientColors: submission.mode.isFriends
                                       ? const [
                                           Color(0xFF5FC0FF),
                                           Color(0xFF2E6FC9),
@@ -256,6 +288,7 @@ class _TruthOrDareTurnPageState extends State<TruthOrDareTurnPage> {
                                   height: 70,
                                   depth: 4.4,
                                   borderRadius: 20,
+                                  isLoading: _isResolvingTurn,
                                   textStyle: Theme.of(context)
                                       .textTheme
                                       .titleLarge
@@ -264,9 +297,11 @@ class _TruthOrDareTurnPageState extends State<TruthOrDareTurnPage> {
                                         fontWeight: FontWeight.w600,
                                         fontSize: 32 * 0.58,
                                       ),
-                                  onTap: () => _openRoundScoreSummary(
-                                    didComplete: false,
-                                  ),
+                                  onTap: _isResolvingTurn
+                                      ? null
+                                      : () => _openRoundScoreSummary(
+                                          didComplete: false,
+                                        ),
                                 ),
                               ),
                             ],
@@ -285,18 +320,6 @@ class _TruthOrDareTurnPageState extends State<TruthOrDareTurnPage> {
             ),
           ),
         ],
-      ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _bottomMenuItem,
-        onItemSelected: (item) {
-          setState(() {
-            _bottomMenuItem = item;
-          });
-          if (item == GlobalBottomMenuItem.home &&
-              Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
-        },
       ),
     );
   }

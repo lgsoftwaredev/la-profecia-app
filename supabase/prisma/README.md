@@ -28,3 +28,10 @@ npx prisma migrate deploy
 cd supabase
 npx prisma migrate dev --name <nombre_migracion>
 ```
+
+## 5) Cargar banco oficial de preguntas y retos
+
+```bash
+cd supabase
+npm run prisma:seed:content
+```

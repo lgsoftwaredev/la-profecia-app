@@ -224,6 +224,7 @@ model SessionPlayer {
   displayName   String        @db.VarChar(80)
   seatOrder     Int
   pairIndex     Int?
+  profileId     String?       @db.Uuid
   isEliminated  Boolean       @default(false)
   eliminatedAt  DateTime?
   createdAt     DateTime      @default(now())

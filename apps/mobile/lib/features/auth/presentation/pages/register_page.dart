@@ -1,56 +1,136 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/providers/app_providers.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/global_bottom_menu.dart';
-import '../../../game_mode_selection/presentation/pages/home_page.dart';
+import '../providers/auth_providers.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
-import '../../../premium/presentation/pages/premium_menu_page.dart';
-import '../../../settings/presentation/pages/settings_page.dart';
-import '../controllers/auth_session_store.dart';
 
-class RegisterPage extends StatefulWidget {
+const registerEmailConfirmationRequiredResult = 'email_confirmation_required';
+
+class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
 
   @override
-  State<RegisterPage> createState() => _RegisterPageState();
+  ConsumerState<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
-  var _bottomMenuItem = GlobalBottomMenuItem.profile;
+class _RegisterPageState extends ConsumerState<RegisterPage> {
+  final _usernameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  var _obscurePassword = true;
+  var _obscureConfirmPassword = true;
 
-  void _onBottomMenuSelected(GlobalBottomMenuItem item) {
-    if (item == GlobalBottomMenuItem.home) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const HomePage()),
-        (route) => false,
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final username = _usernameController.text.trim();
+    final phone = _phoneController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+    if (username.isEmpty ||
+        phone.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Completa todos los campos.')),
       );
       return;
     }
-    if (item == GlobalBottomMenuItem.ranking) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const PremiumMenuPage()));
+    if (!_isValidEmail(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingresa un correo valido.')),
+      );
       return;
     }
-    if (item == GlobalBottomMenuItem.settings) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Las contrasenas no coinciden.')),
+      );
       return;
     }
 
-    setState(() {
-      _bottomMenuItem = item;
-    });
+    final authController = ref.read(authControllerProvider);
+    final ok = await authController.signUpWithEmail(
+      email: email,
+      password: password,
+      username: username,
+      phone: phone,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authController.errorMessage ?? 'No se pudo registrar.'),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).pop(registerEmailConfirmationRequiredResult);
   }
 
-  void _submit() {
-    AuthSessionStore.signIn();
+  bool _isValidEmail(String email) {
+    final regex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    return regex.hasMatch(email);
+  }
+
+  Future<void> _registerWithGoogle() async {
+    final authController = ref.read(authControllerProvider);
+    final ok = await authController.signInWithGoogle();
+    if (!mounted) {
+      return;
+    }
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            authController.errorMessage ?? 'No se pudo iniciar con Google.',
+          ),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).pop(true);
+  }
+
+  Future<void> _registerWithApple() async {
+    final authController = ref.read(authControllerProvider);
+    final ok = await authController.signInWithApple();
+    if (!mounted) {
+      return;
+    }
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            authController.errorMessage ?? 'No se pudo iniciar con Apple.',
+          ),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isSubmitting = ref.watch(isAuthLoadingProvider);
+
     return Scaffold(
       extendBody: true,
       body: Stack(
@@ -108,6 +188,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   Expanded(
                     child: SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       padding: const EdgeInsets.only(bottom: 170),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,42 +197,76 @@ class _RegisterPageState extends State<RegisterPage> {
                           const SizedBox(height: AppSpacing.sm),
                           _AuthLabel(text: 'Usuario'),
                           const SizedBox(height: AppSpacing.xs),
-                          const _AuthInputField(
+                          _AuthInputField(
                             icon: Icons.person_outline_rounded,
-                            hintText: 'ID',
+                            hintText: 'Nombre',
+                            controller: _usernameController,
                           ),
                           const SizedBox(height: AppSpacing.sm),
                           _AuthLabel(text: 'Escribe tu celular'),
                           const SizedBox(height: AppSpacing.xs),
-                          const _AuthInputField(
+                          _AuthInputField(
                             icon: Icons.phone_outlined,
                             hintText: '',
                             leadingText: '+57',
                             trailingIcon: Icons.keyboard_arrow_down_rounded,
+                            controller: _phoneController,
                           ),
                           const SizedBox(height: AppSpacing.sm),
                           _AuthLabel(text: 'Correo'),
                           const SizedBox(height: AppSpacing.xs),
-                          const _AuthInputField(
+                          _AuthInputField(
                             icon: Icons.mail_outline_rounded,
                             hintText: 'Correo',
+                            controller: _emailController,
                           ),
                           const SizedBox(height: AppSpacing.sm),
                           _AuthLabel(text: 'Escribe tu contraseña'),
                           const SizedBox(height: AppSpacing.xs),
-                          const _AuthInputField(
+                          _AuthInputField(
                             icon: Icons.lock_outline_rounded,
                             hintText: '*****',
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            trailingIcon: _obscurePassword
+                                ? Icons.visibility_off_rounded
+                                : Icons.visibility_rounded,
+                            onTrailingTap: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          _AuthLabel(text: 'Confirma tu contraseña'),
+                          const SizedBox(height: AppSpacing.xs),
+                          _AuthInputField(
+                            icon: Icons.lock_outline_rounded,
+                            hintText: '*****',
+                            controller: _confirmPasswordController,
+                            obscureText: _obscureConfirmPassword,
+                            trailingIcon: _obscureConfirmPassword
+                                ? Icons.visibility_off_rounded
+                                : Icons.visibility_rounded,
+                            onTrailingTap: () {
+                              setState(() {
+                                _obscureConfirmPassword =
+                                    !_obscureConfirmPassword;
+                              });
+                            },
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           _PrimaryAuthButton(
-                            text: 'Iniciar sesión',
+                            text: isSubmitting ? 'Cargando...' : 'Crear cuenta',
                             onTap: _submit,
                           ),
                           const SizedBox(height: AppSpacing.md),
                           const _DividerLabel(text: 'O regístrate'),
                           const SizedBox(height: AppSpacing.md),
-                          const _SocialButtonsRow(),
+                          _SocialButtonsRow(
+                            onGoogleTap: _registerWithGoogle,
+                            onAppleTap: _registerWithApple,
+                          ),
                           const SizedBox(height: AppSpacing.md),
                           Align(
                             child: GestureDetector(
@@ -191,10 +307,6 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ],
       ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _bottomMenuItem,
-        onItemSelected: _onBottomMenuSelected,
-      ),
     );
   }
 }
@@ -221,14 +333,20 @@ class _AuthInputField extends StatelessWidget {
   const _AuthInputField({
     required this.icon,
     required this.hintText,
+    required this.controller,
     this.leadingText,
     this.trailingIcon,
+    this.onTrailingTap,
+    this.obscureText = false,
   });
 
   final IconData icon;
   final String hintText;
+  final TextEditingController controller;
   final String? leadingText;
   final IconData? trailingIcon;
+  final VoidCallback? onTrailingTap;
+  final bool obscureText;
 
   @override
   Widget build(BuildContext context) {
@@ -271,16 +389,37 @@ class _AuthInputField extends StatelessWidget {
             ),
           if (leadingText != null) const SizedBox(width: AppSpacing.xs),
           Expanded(
-            child: Text(
-              hintText,
+            child: TextField(
+              controller: controller,
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
+              obscureText: obscureText,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white.withValues(alpha: 0.40),
+                color: Colors.white.withValues(alpha: 0.88),
                 fontWeight: FontWeight.w500,
                 fontSize: 32 * 0.52,
               ),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: hintText,
+                hintStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.40),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 32 * 0.52,
+                ),
+              ),
             ),
           ),
-          if (trailingIcon != null)
+          if (trailingIcon != null && onTrailingTap != null)
+            IconButton(
+              onPressed: onTrailingTap,
+              icon: Icon(
+                trailingIcon,
+                size: 22,
+                color: Colors.white.withValues(alpha: 0.72),
+              ),
+            )
+          else if (trailingIcon != null)
             Icon(
               trailingIcon,
               size: 22,
@@ -370,21 +509,32 @@ class _DividerLabel extends StatelessWidget {
 }
 
 class _SocialButtonsRow extends StatelessWidget {
-  const _SocialButtonsRow();
+  const _SocialButtonsRow({
+    required this.onGoogleTap,
+    required this.onAppleTap,
+  });
+
+  final VoidCallback onGoogleTap;
+  final VoidCallback onAppleTap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: const [
+      children: [
         Expanded(
           child: _SocialButton(
             asset: 'assets/logo-icon-google.png',
             dark: false,
+            onTap: onGoogleTap,
           ),
         ),
-        SizedBox(width: AppSpacing.md),
+        const SizedBox(width: AppSpacing.md),
         Expanded(
-          child: _SocialButton(asset: 'assets/logo-icon-apple.png', dark: true),
+          child: _SocialButton(
+            asset: 'assets/logo-icon-apple.png',
+            dark: true,
+            onTap: onAppleTap,
+          ),
         ),
       ],
     );
@@ -392,10 +542,15 @@ class _SocialButtonsRow extends StatelessWidget {
 }
 
 class _SocialButton extends StatelessWidget {
-  const _SocialButton({required this.asset, required this.dark});
+  const _SocialButton({
+    required this.asset,
+    required this.dark,
+    required this.onTap,
+  });
 
   final String asset;
   final bool dark;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -412,8 +567,20 @@ class _SocialButton extends StatelessWidget {
       innerBorderColor: Colors.white.withValues(alpha: dark ? 0.05 : 0.14),
       topHighlightOpacity: 0.10,
       bottomShadeOpacity: 0.10,
-      child: Center(
-        child: Image.asset(asset, width: 28, height: 28, fit: BoxFit.contain),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Center(
+            child: Image.asset(
+              asset,
+              width: 28,
+              height: 28,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
       ),
     );
   }

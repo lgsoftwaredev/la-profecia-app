@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
-import '../../../../core/widgets/global_bottom_menu.dart';
-import '../../../profile/presentation/pages/profile_page.dart';
-import '../../../settings/presentation/pages/settings_page.dart';
 
 class PremiumMenuPage extends StatefulWidget {
   const PremiumMenuPage({super.key});
@@ -14,8 +11,6 @@ class PremiumMenuPage extends StatefulWidget {
 }
 
 class _PremiumMenuPageState extends State<PremiumMenuPage> {
-  var _bottomMenuItem = GlobalBottomMenuItem.ranking;
-
   static const _benefits = <String>[
     'Acceso a todos los niveles',
     'Inframundo',
@@ -24,30 +19,6 @@ class _PremiumMenuPageState extends State<PremiumMenuPage> {
     'Sin interrupciones',
     'Sin anuncios',
   ];
-
-  void _onBottomMenuSelected(GlobalBottomMenuItem item) {
-    if (item == GlobalBottomMenuItem.home) {
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-      return;
-    }
-    if (item == GlobalBottomMenuItem.profile) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const ProfilePage()));
-      return;
-    }
-    if (item == GlobalBottomMenuItem.settings) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
-      return;
-    }
-    setState(() {
-      _bottomMenuItem = item;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -157,10 +128,6 @@ class _PremiumMenuPageState extends State<PremiumMenuPage> {
             ),
           ),
         ],
-      ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _bottomMenuItem,
-        onItemSelected: _onBottomMenuSelected,
       ),
     );
   }

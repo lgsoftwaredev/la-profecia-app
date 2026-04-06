@@ -9,7 +9,8 @@
     "prisma:validate": "prisma validate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:db:push": "prisma db push"
+    "prisma:db:push": "prisma db push",
+    "prisma:seed:content": "prisma db execute --file prisma/seeds/content_seed.sql"
   },
   "engines": {
     "node": ">=20.19.0"

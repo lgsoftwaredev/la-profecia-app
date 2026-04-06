@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
-import '../../../../core/widgets/global_bottom_menu.dart';
 import '../../../game_mode_selection/presentation/pages/home_page.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
@@ -32,8 +31,6 @@ class FinalProphecyChallengeModePage extends StatefulWidget {
 
 class _FinalProphecyChallengeModePageState
     extends State<FinalProphecyChallengeModePage> {
-  var _bottomMenuItem = GlobalBottomMenuItem.home;
-
   bool get _isFriendsMode => widget.submission.mode.isFriends;
 
   Color get _modeAccent =>
@@ -318,17 +315,6 @@ class _FinalProphecyChallengeModePageState
             ),
           ),
         ],
-      ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _bottomMenuItem,
-        onItemSelected: (item) {
-          setState(() {
-            _bottomMenuItem = item;
-          });
-          if (item == GlobalBottomMenuItem.home) {
-            _defaultBackToHome();
-          }
-        },
       ),
     );
   }

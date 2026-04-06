@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
-import '../../../../core/widgets/global_bottom_menu.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
 import '../pages/final_group_challenge_page.dart';
@@ -29,8 +28,6 @@ class FinalJudgmentModePage extends StatefulWidget {
 }
 
 class _FinalJudgmentModePageState extends State<FinalJudgmentModePage> {
-  var _bottomMenuItem = GlobalBottomMenuItem.home;
-
   Color get _modeAccent => widget.submission.mode.isFriends
       ? const Color(0xFF2A9DFF)
       : const Color(0xFFE94494);
@@ -321,18 +318,6 @@ class _FinalJudgmentModePageState extends State<FinalJudgmentModePage> {
             ),
           ),
         ],
-      ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _bottomMenuItem,
-        onItemSelected: (item) {
-          setState(() {
-            _bottomMenuItem = item;
-          });
-          if (item == GlobalBottomMenuItem.home &&
-              Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
-        },
       ),
     );
   }

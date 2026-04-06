@@ -44,7 +44,11 @@ class PlayerNameCard extends StatelessWidget {
         _tinted(accentTint, 0.07).withValues(alpha: 0.76),
       ],
       outerShadows: [
-        BoxShadow(color: Colors.black.withValues(alpha: 0.30), blurRadius: 18, offset: const Offset(0, 7)),
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.30),
+          blurRadius: 18,
+          offset: const Offset(0, 7),
+        ),
         BoxShadow(
           color: accentTint.withValues(alpha: 0.14),
           blurRadius: 18,
@@ -60,6 +64,8 @@ class PlayerNameCard extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
               onChanged: onChanged,
               maxLines: 1,
               textInputAction: TextInputAction.next,

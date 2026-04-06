@@ -15,7 +15,7 @@ class FinalGroupChallengePage extends StatelessWidget {
 
   final GameSetupSubmission submission;
   final String punishedLabel;
-  final ValueChanged<String>? onSendTap;
+  final Future<bool> Function(String)? onSendTap;
   final VoidCallback? onPlayAgainTap;
   final VoidCallback? onBackToHomeTap;
 

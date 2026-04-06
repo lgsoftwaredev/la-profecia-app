@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
-import '../../../../core/widgets/global_bottom_menu.dart';
+import '../../../game_mode_selection/presentation/pages/home_page.dart';
+import '../../../match_play/presentation/providers/match_providers.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../domain/entities/game_setup_models.dart';
-import '../controllers/player_setup_controller.dart';
-import 'start_points_page.dart';
+import '../providers/player_setup_providers.dart';
+import 'truth_or_dare_selection_page.dart';
 import '../widgets/game_style_card.dart';
 import '../widgets/player_name_card.dart';
 import '../widgets/setup_count_selector.dart';
 
-class PlayerSetupPage extends StatefulWidget {
+class PlayerSetupPage extends ConsumerStatefulWidget {
   const PlayerSetupPage({
     required this.mode,
     this.isPremium = false,
@@ -24,39 +26,29 @@ class PlayerSetupPage extends StatefulWidget {
   final ValueChanged<GameSetupSubmission>? onStart;
 
   @override
-  State<PlayerSetupPage> createState() => _PlayerSetupPageState();
+  ConsumerState<PlayerSetupPage> createState() => _PlayerSetupPageState();
 }
 
-class _PlayerSetupPageState extends State<PlayerSetupPage> {
-  late final PlayerSetupController _controller = PlayerSetupController(
+class _PlayerSetupPageState extends ConsumerState<PlayerSetupPage> {
+  late final PlayerSetupParams _params = PlayerSetupParams(
     mode: widget.mode,
     isPremium: widget.isPremium,
   );
   final Map<int, TextEditingController> _nameControllers = {};
-  var _bottomMenuItem = GlobalBottomMenuItem.home;
 
-  @override
-  void initState() {
-    super.initState();
-    _syncNameControllers(_controller.state.players);
-    _controller.addListener(_onControllerChanged);
+  void _goToHome() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const HomePage()),
+      (route) => false,
+    );
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_onControllerChanged);
-    _controller.dispose();
     for (final controller in _nameControllers.values) {
       controller.dispose();
     }
     super.dispose();
-  }
-
-  void _onControllerChanged() {
-    _syncNameControllers(_controller.state.players);
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   void _syncNameControllers(List<PlayerConfig> players) {
@@ -87,7 +79,8 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
   }
 
   void _onSubmit() {
-    final submission = _controller.submit();
+    final controller = ref.read(playerSetupControllerProvider(_params));
+    final submission = controller.submit();
     if (submission == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -101,9 +94,10 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
       return;
     }
 
+    ref.read(activeSetupSubmissionProvider.notifier).state = submission;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => StartPointsPage(submission: submission),
+        builder: (_) => TruthOrDareSelectionPage(submission: submission),
       ),
     );
     widget.onStart?.call(submission);
@@ -111,7 +105,9 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
 
   @override
   Widget build(BuildContext context) {
-    final state = _controller.state;
+    final controller = ref.watch(playerSetupControllerProvider(_params));
+    final state = controller.state;
+    _syncNameControllers(state.players);
     final modeAccent = state.mode.isFriends
         ? const Color.fromARGB(255, 7, 135, 255)
         : const Color(0xFFE94494);
@@ -125,201 +121,194 @@ class _PlayerSetupPageState extends State<PlayerSetupPage> {
         ? const [Color(0xFF5FC0FF), Color(0xFF2E6FC9)]
         : const [Color(0xFFF574B9), Color(0xFFD93D88)];
 
-    return Scaffold(
-      extendBody: true,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(backgroundAsset, fit: BoxFit.cover),
-          SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                const SizedBox(height: AppSpacing.sm),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                  ),
-                  child: SizedBox(
-                    height: 112,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Center(
-                            child: Image.asset(
-                              'assets/logo-+18.png',
-                              width: 160,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        _HeaderSideButton(
-                          onTap: () {
-                            if (Navigator.of(context).canPop()) {
-                              Navigator.of(context).pop();
-                            }
-                          },
-                        ),
-                      ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          return;
+        }
+        _goToHome();
+      },
+      child: Scaffold(
+        extendBody: true,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(backgroundAsset, fit: BoxFit.cover),
+            SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  const SizedBox(height: AppSpacing.sm),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
                     ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(
-                      AppSpacing.lg,
-                      AppSpacing.sm,
-                      AppSpacing.lg,
-                      160 + MediaQuery.of(context).viewInsets.bottom,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Center(
-                          child: Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: 'Numero',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .displaySmall
-                                      ?.copyWith(
-                                        fontSize: 50 * 0.66,
-                                        fontWeight: FontWeight.w700,
-                                        color: modeAccent,
-                                      ),
-                                ),
-                                TextSpan(
-                                  text: ' de ${state.countTitle}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .displaySmall
-                                      ?.copyWith(
-                                        fontSize: 50 * 0.66,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                ),
-                              ],
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        SetupCountSelector(
-                          count: state.groupCount,
-                          canIncrement: _controller.canIncrement,
-                          canDecrement: _controller.canDecrement,
-                          onIncrement: _controller.incrementCount,
-                          onDecrement: _controller.decrementCount,
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        Text(
-                          'Nombre de cada jugador',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                fontSize: 34 * 0.45,
-                                fontWeight: FontWeight.w700,
+                    child: SizedBox(
+                      height: 112,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Center(
+                              child: Image.asset(
+                                'assets/logo-+18.png',
+                                width: 160,
+                                fit: BoxFit.contain,
                               ),
-                        ),
-                        if (state.participantRangeLabel.isNotEmpty) ...[
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            state.participantRangeLabel,
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                ),
+                            ),
                           ),
+                          const Spacer(),
+                          _HeaderSideButton(onTap: _goToHome),
                         ],
-                        const SizedBox(height: AppSpacing.md),
-                        if (state.mode.isFriends)
-                          _FriendsPlayersList(
-                            players: state.players,
-                            badgeColor: badgeColor,
-                            accentTint: modeAccent,
-                            nameControllers: _nameControllers,
-                            hasError: _controller.playerHasError,
-                            onNameChanged: (playerId, value) =>
-                                _controller.updatePlayerName(
-                                  playerId: playerId,
-                                  value: value,
-                                ),
-                          )
-                        else
-                          _CouplesPlayersList(
-                            pairCount: state.groupCount,
-                            players: state.players,
-                            badgeColor: badgeColor,
-                            accentTint: modeAccent,
-                            nameControllers: _nameControllers,
-                            hasError: _controller.playerHasError,
-                            onNameChanged: (playerId, value) =>
-                                _controller.updatePlayerName(
-                                  playerId: playerId,
-                                  value: value,
-                                ),
-                          ),
-                        const SizedBox(height: AppSpacing.xl),
-                        for (final theme in GameStyleTheme.values) ...[
-                          GameStyleCard(
-                            label: theme.label,
-                            iconAsset: theme.iconAsset,
-                            accentColor: theme.accentColor,
-                            isSelected: state.selectedTheme == theme,
-                            isLocked: state.themeIsLocked(theme),
-                            useCleanInframundoIcon:
-                                theme == GameStyleTheme.inframundo,
-                            onTap: () => _controller.selectTheme(theme),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.sm,
+                        AppSpacing.lg,
+                        160 + MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Center(
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: 'Numero',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .displaySmall
+                                        ?.copyWith(
+                                          fontSize: 50 * 0.66,
+                                          fontWeight: FontWeight.w700,
+                                          color: modeAccent,
+                                        ),
+                                  ),
+                                  TextSpan(
+                                    text: ' de ${state.countTitle}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .displaySmall
+                                        ?.copyWith(
+                                          fontSize: 50 * 0.66,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.md),
-                        ],
-                        if (!state.isPremium) ...[
-                          const _PremiumUpsellBanner(),
-                          const SizedBox(height: AppSpacing.xl),
-                        ],
-                        Opacity(
-                          opacity: state.canStart ? 1 : 0.65,
-                          child: App3dPillButton(
-                            label: 'Comenzar',
-                            color: startGradient.first,
-                            gradientColors: startGradient,
-                            height: 76,
-                            depth: 4.8,
-                            borderRadius: 20,
-                            textStyle: Theme.of(context).textTheme.headlineSmall
+                          SetupCountSelector(
+                            count: state.groupCount,
+                            canIncrement: controller.canIncrement,
+                            canDecrement: controller.canDecrement,
+                            onIncrement: controller.incrementCount,
+                            onDecrement: controller.decrementCount,
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          Text(
+                            'Nombre de cada jugador',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(
-                                  color: Colors.white,
-                                  fontSize: 41 * 0.46,
+                                  fontSize: 34 * 0.45,
                                   fontWeight: FontWeight.w700,
                                 ),
-                            onTap: _onSubmit,
                           ),
-                        ),
-                      ],
+                          if (state.participantRangeLabel.isNotEmpty) ...[
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              state.participantRangeLabel,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                  ),
+                            ),
+                          ],
+                          const SizedBox(height: AppSpacing.md),
+                          if (state.mode.isFriends)
+                            _FriendsPlayersList(
+                              players: state.players,
+                              badgeColor: badgeColor,
+                              accentTint: modeAccent,
+                              nameControllers: _nameControllers,
+                              hasError: controller.playerHasError,
+                              onNameChanged: (playerId, value) =>
+                                  controller.updatePlayerName(
+                                    playerId: playerId,
+                                    value: value,
+                                  ),
+                            )
+                          else
+                            _CouplesPlayersList(
+                              pairCount: state.groupCount,
+                              players: state.players,
+                              badgeColor: badgeColor,
+                              accentTint: modeAccent,
+                              nameControllers: _nameControllers,
+                              hasError: controller.playerHasError,
+                              onNameChanged: (playerId, value) =>
+                                  controller.updatePlayerName(
+                                    playerId: playerId,
+                                    value: value,
+                                  ),
+                            ),
+                          const SizedBox(height: AppSpacing.xl),
+                          for (final theme in GameStyleTheme.values) ...[
+                            GameStyleCard(
+                              label: theme.label,
+                              iconAsset: theme.iconAsset,
+                              accentColor: theme.accentColor,
+                              isSelected: state.selectedTheme == theme,
+                              isLocked: state.themeIsLocked(theme),
+                              useCleanInframundoIcon:
+                                  theme == GameStyleTheme.inframundo,
+                              onTap: () => controller.selectTheme(theme),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                          ],
+                          if (!state.isPremium) ...[
+                            const _PremiumUpsellBanner(),
+                            const SizedBox(height: AppSpacing.xl),
+                          ],
+                          Opacity(
+                            opacity: state.canStart ? 1 : 0.65,
+                            child: App3dPillButton(
+                              label: 'Comenzar',
+                              color: startGradient.first,
+                              gradientColors: startGradient,
+                              height: 76,
+                              depth: 4.8,
+                              borderRadius: 20,
+                              textStyle: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontSize: 41 * 0.46,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                              onTap: _onSubmit,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _bottomMenuItem,
-        onItemSelected: (item) {
-          setState(() {
-            _bottomMenuItem = item;
-          });
-          if (item == GlobalBottomMenuItem.home &&
-              Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
-        },
+          ],
+        ),
       ),
     );
   }

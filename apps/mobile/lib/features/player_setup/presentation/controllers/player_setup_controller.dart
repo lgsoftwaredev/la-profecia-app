@@ -1,18 +1,22 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/constants/default_participant_names.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../domain/entities/game_setup_models.dart';
 
 class PlayerSetupController extends ChangeNotifier {
-  PlayerSetupController({required GameMode mode, bool isPremium = false})
-    : _state = _createInitialState(mode: mode, isPremium: isPremium);
-
-  static GameSetupState _createInitialState({
+  PlayerSetupController({
     required GameMode mode,
-    required bool isPremium,
-  }) {
+    bool isPremium = false,
+    String? authenticatedUserId,
+    String? authenticatedPlayerName,
+  }) : _authenticatedUserId = _normalizeValue(authenticatedUserId),
+       _authenticatedPlayerName = _normalizeValue(authenticatedPlayerName) {
+    _nameSeedOffset = Random().nextInt(kDefaultParticipantNames.length);
     final initialGroupCount = mode.isFriends ? 4 : 1;
-    return GameSetupState(
+    _state = GameSetupState(
       mode: mode,
       groupCount: initialGroupCount,
       players: _buildPlayers(mode: mode, groupCount: initialGroupCount),
@@ -22,25 +26,19 @@ class PlayerSetupController extends ChangeNotifier {
     );
   }
 
-  static List<PlayerConfig> _buildPlayers({
-    required GameMode mode,
-    required int groupCount,
-    Map<int, String> previousNames = const {},
-  }) {
-    final totalPlayers = mode.isFriends ? groupCount : groupCount * 2;
-
-    return List<PlayerConfig>.generate(totalPlayers, (index) {
-      final id = index + 1;
-      return PlayerConfig(
-        id: id,
-        name: previousNames[id] ?? '',
-        pairIndex: mode.isCouples ? index ~/ 2 : null,
-      );
-    });
+  static String? _normalizeValue(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    return trimmed;
   }
 
+  late final int _nameSeedOffset;
+  final String? _authenticatedUserId;
+  final String? _authenticatedPlayerName;
   final Map<int, String> _nameCacheByPlayerId = <int, String>{};
-  GameSetupState _state;
+  late GameSetupState _state;
 
   GameSetupState get state => _state;
   bool get canIncrement => _state.groupCount < _state.maxGroupCount;
@@ -48,6 +46,38 @@ class PlayerSetupController extends ChangeNotifier {
 
   void incrementCount() => _updateGroupCount(_state.groupCount + 1);
   void decrementCount() => _updateGroupCount(_state.groupCount - 1);
+
+  List<PlayerConfig> _buildPlayers({
+    required GameMode mode,
+    required int groupCount,
+    Map<int, String> previousNames = const <int, String>{},
+  }) {
+    final totalPlayers = mode.isFriends ? groupCount : groupCount * 2;
+
+    return List<PlayerConfig>.generate(totalPlayers, (index) {
+      final id = index + 1;
+      final fallbackName = _defaultNameForId(id);
+      final isAuthenticatedUser = _isAuthenticatedSeat(id);
+      final authenticatedPlayerName = _authenticatedPlayerName;
+      final seededName = isAuthenticatedUser && authenticatedPlayerName != null
+          ? authenticatedPlayerName
+          : fallbackName;
+      return PlayerConfig(
+        id: id,
+        name: previousNames[id] ?? seededName,
+        pairIndex: mode.isCouples ? index ~/ 2 : null,
+        authUserId: isAuthenticatedUser ? _authenticatedUserId : null,
+        isAuthenticatedUser: isAuthenticatedUser,
+      );
+    });
+  }
+
+  String _defaultNameForId(int id) {
+    final index = (_nameSeedOffset + id - 1) % kDefaultParticipantNames.length;
+    return kDefaultParticipantNames[index];
+  }
+
+  bool _isAuthenticatedSeat(int id) => id == 1 && _authenticatedUserId != null;
 
   void _updateGroupCount(int nextCount) {
     final clamped = nextCount.clamp(_state.minGroupCount, _state.maxGroupCount);

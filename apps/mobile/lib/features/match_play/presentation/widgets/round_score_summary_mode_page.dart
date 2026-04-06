@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
-import '../../../../core/widgets/global_bottom_menu.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
@@ -52,8 +51,6 @@ class RoundScoreSummaryModePage extends StatefulWidget {
 }
 
 class _RoundScoreSummaryModePageState extends State<RoundScoreSummaryModePage> {
-  var _bottomMenuItem = GlobalBottomMenuItem.home;
-
   Color get _negativeAccent => const Color(0xFFFF3A4D);
 
   Color get _statusAccent =>
@@ -102,207 +99,188 @@ class _RoundScoreSummaryModePageState extends State<RoundScoreSummaryModePage> {
         ? 'Jugador ${_completedPlayer.id}'
         : _completedPlayer.name.trim();
 
-    return Scaffold(
-      extendBody: true,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(widget.backgroundAsset, fit: BoxFit.cover),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0x5C050316),
-                  const Color(0xFF06020F).withValues(alpha: 0.95),
-                ],
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        extendBody: true,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(widget.backgroundAsset, fit: BoxFit.cover),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    const Color(0x5C050316),
+                    const Color(0xFF06020F).withValues(alpha: 0.95),
+                  ],
+                ),
               ),
             ),
-          ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0, -0.05),
-                radius: 0.96,
-                colors: [
-                  _statusGlowColor.withValues(alpha: 0.42),
-                  _statusGlowColor.withValues(alpha: 0.15),
-                  Colors.transparent,
-                ],
-                stops: const [0, 0.36, 0.82],
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -0.05),
+                  radius: 0.96,
+                  colors: [
+                    _statusGlowColor.withValues(alpha: 0.42),
+                    _statusGlowColor.withValues(alpha: 0.15),
+                    Colors.transparent,
+                  ],
+                  stops: const [0, 0.36, 0.82],
+                ),
               ),
             ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: Column(
-                children: [
-                  const SizedBox(height: AppSpacing.sm),
-                  SizedBox(
-                    height: 92,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Image.asset(
-                              'assets/logo-+18.png',
-                              width: 160,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ),
-                        RoundScoreSummaryHeaderSideButton(
-                          accent: widget.modeAccent,
-                          onTap: () {
-                            if (Navigator.of(context).canPop()) {
-                              Navigator.of(context).pop();
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.only(bottom: 170),
-                      child: Column(
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: Column(
+                  children: [
+                    const SizedBox(height: AppSpacing.sm),
+                    SizedBox(
+                      height: 92,
+                      child: Row(
                         children: [
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            '$completedName ${widget.didComplete ? 'ha cumplido' : 'no ha cumplido'}',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  fontSize: 38 * 0.66,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: widget.didComplete
-                                      ? 'Ha conseguido '
-                                      : 'Ha descontado ',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.9,
-                                        ),
-                                      ),
-                                ),
-                                TextSpan(
-                                  text:
-                                      '${_deltaPoints >= 0 ? '+' : ''}$_deltaPoints puntos',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(
-                                        color: widget.didComplete
-                                            ? const Color(0xFFFFB000)
-                                            : _negativeAccent,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                ),
-                              ],
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Image.asset(
+                                'assets/logo-+18.png',
+                                width: 160,
+                                fit: BoxFit.contain,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Text(
-                            completedName,
-                            style: Theme.of(context).textTheme.headlineLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 48 * 0.78,
-                                ),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          RoundScoreSummaryCompactPointsChip(
-                            points: _deltaPoints,
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          Text(
-                            'Puntaje Ronda ${widget.round}',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.95),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                ),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          if (widget.submission.mode.isCouples &&
-                              _pairs.length > 1)
-                            RoundScoreSummaryCouplesPairsSection(
-                              pairs: _pairs,
-                              completedPlayerId: widget.completedPlayerId,
-                              scoreFor: _scoreFor,
-                              baseCircleColor: widget.baseNumberCircle,
-                              didComplete: widget.didComplete,
-                              statusAccent: _statusAccent,
-                              lostPoints: widget.gainedPoints.abs(),
-                              usePremiumPairCards: widget.usePremiumPairCards,
-                              pairTotalChipHeight: widget.pairTotalChipHeight,
-                              pairCardTopHighlightOpacity:
-                                  widget.pairCardTopHighlightOpacity,
-                              pairCardBottomShadeOpacity:
-                                  widget.pairCardBottomShadeOpacity,
-                              pairCardInnerBorderAlpha:
-                                  widget.pairCardInnerBorderAlpha,
-                            )
-                          else
-                            RoundScoreSummaryScoreRowsSection(
-                              players: widget.submission.mode.isCouples
-                                  ? (_pairs.isNotEmpty
-                                        ? _pairs.first
-                                        : _players)
-                                  : _players,
-                              completedPlayerId: widget.completedPlayerId,
-                              scoreFor: _scoreFor,
-                              baseCircleColor: widget.baseNumberCircle,
-                              didComplete: widget.didComplete,
-                              statusAccent: _statusAccent,
-                            ),
-                          const SizedBox(height: AppSpacing.lg),
-                          RoundScoreSummaryRoundChip(
-                            round: widget.round,
-                            accentColor: widget.modeAccent,
-                          ),
-                          const SizedBox(height: AppSpacing.xl),
-                          RoundScoreSummaryNextRoundButton(
-                            gradient: widget.buttonGradient,
-                            onTap:
-                                widget.onNextRoundTap ??
-                                () {
-                                  if (Navigator.of(context).canPop()) {
-                                    Navigator.of(context).pop();
-                                  }
-                                },
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.only(bottom: 170),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              '$completedName ${widget.didComplete ? 'ha cumplido' : 'no ha cumplido'}',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    fontSize: 38 * 0.66,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: widget.didComplete
+                                        ? 'Ha conseguido '
+                                        : 'Ha descontado ',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.9,
+                                          ),
+                                        ),
+                                  ),
+                                  TextSpan(
+                                    text:
+                                        '${_deltaPoints >= 0 ? '+' : ''}$_deltaPoints puntos',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: widget.didComplete
+                                              ? const Color(0xFFFFB000)
+                                              : _negativeAccent,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            Text(
+                              completedName,
+                              style: Theme.of(context).textTheme.headlineLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 48 * 0.78,
+                                  ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            RoundScoreSummaryCompactPointsChip(
+                              points: _deltaPoints,
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            Text(
+                              'Puntaje Ronda ${widget.round}',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.95),
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            if (widget.submission.mode.isCouples &&
+                                _pairs.length > 1)
+                              RoundScoreSummaryCouplesPairsSection(
+                                pairs: _pairs,
+                                completedPlayerId: widget.completedPlayerId,
+                                scoreFor: _scoreFor,
+                                baseCircleColor: widget.baseNumberCircle,
+                                didComplete: widget.didComplete,
+                                statusAccent: _statusAccent,
+                                lostPoints: widget.gainedPoints.abs(),
+                                usePremiumPairCards: widget.usePremiumPairCards,
+                                pairTotalChipHeight: widget.pairTotalChipHeight,
+                                pairCardTopHighlightOpacity:
+                                    widget.pairCardTopHighlightOpacity,
+                                pairCardBottomShadeOpacity:
+                                    widget.pairCardBottomShadeOpacity,
+                                pairCardInnerBorderAlpha:
+                                    widget.pairCardInnerBorderAlpha,
+                              )
+                            else
+                              RoundScoreSummaryScoreRowsSection(
+                                players: widget.submission.mode.isCouples
+                                    ? (_pairs.isNotEmpty
+                                          ? _pairs.first
+                                          : _players)
+                                    : _players,
+                                completedPlayerId: widget.completedPlayerId,
+                                scoreFor: _scoreFor,
+                                baseCircleColor: widget.baseNumberCircle,
+                                didComplete: widget.didComplete,
+                                statusAccent: _statusAccent,
+                              ),
+                            const SizedBox(height: AppSpacing.lg),
+                            RoundScoreSummaryRoundChip(
+                              round: widget.round,
+                              accentColor: widget.modeAccent,
+                            ),
+                            const SizedBox(height: AppSpacing.xl),
+                            RoundScoreSummaryNextRoundButton(
+                              gradient: widget.buttonGradient,
+                              onTap: widget.onNextRoundTap ?? () {},
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _bottomMenuItem,
-        onItemSelected: (item) {
-          setState(() {
-            _bottomMenuItem = item;
-          });
-          if (item == GlobalBottomMenuItem.home &&
-              Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
-        },
+          ],
+        ),
       ),
     );
   }
@@ -860,59 +838,6 @@ class RoundScoreSummaryNextRoundButton extends StatelessWidget {
         fontSize: 32 * 0.58,
       ),
       onTap: onTap,
-    );
-  }
-}
-
-class RoundScoreSummaryHeaderSideButton extends StatelessWidget {
-  const RoundScoreSummaryHeaderSideButton({
-    required this.accent,
-    required this.onTap,
-    super.key,
-  });
-
-  final Color accent;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bright = Color.lerp(accent, Colors.white, 0.4)!;
-    final dark = Color.lerp(accent, const Color(0xFF120B2D), 0.7)!;
-
-    return SizedBox(
-      width: 52,
-      height: 84,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(30),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  bright.withValues(alpha: 0.22),
-                  dark.withValues(alpha: 0.52),
-                ],
-              ),
-              border: Border.all(
-                color: accent.withValues(alpha: 0.56),
-                width: 1,
-              ),
-            ),
-            child: Center(
-              child: Icon(
-                Icons.chevron_left_rounded,
-                size: 32,
-                color: accent.withValues(alpha: 0.98),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

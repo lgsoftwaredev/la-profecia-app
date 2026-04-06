@@ -1,23 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/providers/app_providers.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/global_bottom_menu.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
+import '../../../match_play/domain/entities/game_prompt.dart';
+import '../../../match_play/domain/entities/match_level.dart';
+import '../../../match_play/domain/entities/truth_or_dare_option.dart';
+import '../../../match_play/presentation/pages/truth_or_dare_turn_page.dart';
+import '../../../match_play/presentation/providers/match_providers.dart';
 import '../../domain/entities/game_setup_models.dart';
-import 'truth_or_dare_selection_page.dart';
 import '../widgets/level_card_frame.dart';
 import '../widgets/start_points_roulette_wheel.dart';
 
-class StartPointsPage extends StatefulWidget {
-  const StartPointsPage({required this.submission, super.key});
+class StartPointsPage extends ConsumerStatefulWidget {
+  const StartPointsPage({
+    required this.submission,
+    required this.selectedOption,
+    super.key,
+  });
 
   final GameSetupSubmission submission;
+  final TruthOrDareOption selectedOption;
 
   @override
-  State<StartPointsPage> createState() => _StartPointsPageState();
+  ConsumerState<StartPointsPage> createState() => _StartPointsPageState();
 }
 
-class _StartPointsPageState extends State<StartPointsPage> {
+class _StartPointsPageState extends ConsumerState<StartPointsPage> {
   static const _order = [
     GameStyleTheme.cielo,
     GameStyleTheme.tierra,
@@ -25,22 +35,44 @@ class _StartPointsPageState extends State<StartPointsPage> {
     GameStyleTheme.inframundo,
   ];
 
-  static const _pointsByTheme = {
-    GameStyleTheme.cielo: 5,
-    GameStyleTheme.tierra: 10,
-    GameStyleTheme.infierno: 20,
-    GameStyleTheme.inframundo: 30,
-  };
-
   late GameStyleTheme _selectedTheme = _initialTheme(
     widget.submission.selectedTheme,
   );
-  var _bottomMenuItem = GlobalBottomMenuItem.home;
+  var _didBootstrapMatch = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _didBootstrapMatch) {
+        return;
+      }
+      _didBootstrapMatch = true;
+      _bootstrapMatch();
+    });
+  }
+
+  Future<void> _bootstrapMatch() async {
+    final controller = ref.read(matchControllerProvider);
+    if (!controller.hasActiveMatch) {
+      await controller.createMatch(widget.submission);
+    }
+    ref.read(activeSetupSubmissionProvider.notifier).state = widget.submission;
+    if (!mounted) {
+      return;
+    }
+    final available = controller.availableLevels;
+    if (available.isNotEmpty &&
+        !available.contains(_selectedTheme.toMatchLevel)) {
+      _selectedTheme = available.first.toGameStyleTheme;
+      setState(() {});
+    }
+  }
 
   static GameStyleTheme _initialTheme(GameStyleTheme input) {
     if (input == GameStyleTheme.infierno ||
         input == GameStyleTheme.inframundo) {
-      return GameStyleTheme.tierra;
+      return GameStyleTheme.cielo;
     }
     return input;
   }
@@ -49,30 +81,60 @@ class _StartPointsPageState extends State<StartPointsPage> {
       ? 'assets/background-setup-friends-mode.png'
       : 'assets/background-setup-couple-mode.png';
 
-  bool _isLocked(GameStyleTheme theme) {
-    return theme == GameStyleTheme.infierno ||
-        theme == GameStyleTheme.inframundo;
+  bool _isLocked(GameStyleTheme theme, List<MatchLevel> availableLevels) {
+    final level = theme.toMatchLevel;
+    return !availableLevels.contains(level);
   }
 
-  int _pointsFor(GameStyleTheme theme) => _pointsByTheme[theme] ?? 0;
+  int _pointsFor(GameStyleTheme theme) => theme.toMatchLevel.points;
 
-  void _goToTruthOrDareSelection(GameStyleTheme selectedTheme) {
+  Future<void> _openTurnPage(GameStyleTheme selectedTheme) async {
     final submission = GameSetupSubmission(
       mode: widget.submission.mode,
       players: widget.submission.players,
       pairs: widget.submission.pairs,
       selectedTheme: selectedTheme,
     );
+    ref.read(activeSetupSubmissionProvider.notifier).state = submission;
 
+    final kind = widget.selectedOption == TruthOrDareOption.verdad
+        ? MatchPromptKind.question
+        : MatchPromptKind.challenge;
+    final controller = ref.read(matchControllerProvider);
+    final turn = await controller.startTurn(
+      kind: kind,
+      preferredLevel: selectedTheme.toMatchLevel,
+      forceNewTurnWhenPending: true,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (turn == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo iniciar el turno.')),
+      );
+      return;
+    }
+
+    final points = ref.read(matchScoresProvider)[turn.participantId] ?? 0;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => TruthOrDareSelectionPage(submission: submission),
+        builder: (_) => TruthOrDareTurnPage(
+          submission: submission,
+          option: widget.selectedOption,
+          round: turn.roundNumber,
+          points: points,
+          initialTurn: turn,
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final availableLevels = ref.watch(matchAvailableLevelsProvider);
+    final scoresByPlayerId = ref.watch(matchScoresProvider);
+
     return Scaffold(
       extendBody: true,
       body: Stack(
@@ -164,13 +226,21 @@ class _StartPointsPageState extends State<StartPointsPage> {
                         const SizedBox(height: AppSpacing.md),
                         _RouletteSection(
                           selectedTheme: _selectedTheme,
+                          availableThemes: availableLevels
+                              .map((level) => level.toGameStyleTheme)
+                              .toList(growable: false),
                           selectedPoints: _pointsFor(_selectedTheme),
                           onThemeChanged: (theme) =>
                               setState(() => _selectedTheme = theme),
-                          onSpinCompleted: _goToTruthOrDareSelection,
+                          onSpinCompleted: (theme) {
+                            _openTurnPage(theme);
+                          },
                         ),
                         const SizedBox(height: AppSpacing.lg),
-                        _PlayersPointsSection(submission: widget.submission),
+                        _PlayersPointsSection(
+                          submission: widget.submission,
+                          scoresByPlayerId: scoresByPlayerId,
+                        ),
                         const SizedBox(height: AppSpacing.md),
                         Align(
                           alignment: Alignment.centerLeft,
@@ -189,9 +259,9 @@ class _StartPointsPageState extends State<StartPointsPage> {
                           LevelCardFrame(
                             borderColor: theme.accentColor,
                             isSelected: _selectedTheme == theme,
-                            enabled: !_isLocked(theme),
+                            enabled: !_isLocked(theme, availableLevels),
                             onTap: () {
-                              if (_isLocked(theme)) {
+                              if (_isLocked(theme, availableLevels)) {
                                 return;
                               }
                               setState(() {
@@ -239,7 +309,7 @@ class _StartPointsPageState extends State<StartPointsPage> {
                                     ],
                                   ),
                                 ),
-                                if (_isLocked(theme))
+                                if (_isLocked(theme, availableLevels))
                                   Row(
                                     children: [
                                       Image.asset(
@@ -296,18 +366,6 @@ class _StartPointsPageState extends State<StartPointsPage> {
           ),
         ],
       ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _bottomMenuItem,
-        onItemSelected: (item) {
-          setState(() {
-            _bottomMenuItem = item;
-          });
-          if (item == GlobalBottomMenuItem.home &&
-              Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
-        },
-      ),
     );
   }
 }
@@ -315,12 +373,14 @@ class _StartPointsPageState extends State<StartPointsPage> {
 class _RouletteSection extends StatelessWidget {
   const _RouletteSection({
     required this.selectedTheme,
+    required this.availableThemes,
     required this.selectedPoints,
     required this.onThemeChanged,
     required this.onSpinCompleted,
   });
 
   final GameStyleTheme selectedTheme;
+  final List<GameStyleTheme> availableThemes;
   final int selectedPoints;
   final ValueChanged<GameStyleTheme> onThemeChanged;
   final ValueChanged<GameStyleTheme> onSpinCompleted;
@@ -333,6 +393,7 @@ class _RouletteSection extends StatelessWidget {
       children: [
         StartPointsRouletteWheel(
           selectedTheme: selectedTheme,
+          availableThemes: availableThemes,
           onThemeChanged: onThemeChanged,
           onSpinCompleted: onSpinCompleted,
         ),
@@ -358,9 +419,13 @@ class _RouletteSection extends StatelessWidget {
 }
 
 class _PlayersPointsSection extends StatelessWidget {
-  const _PlayersPointsSection({required this.submission});
+  const _PlayersPointsSection({
+    required this.submission,
+    required this.scoresByPlayerId,
+  });
 
   final GameSetupSubmission submission;
+  final Map<int, int> scoresByPlayerId;
 
   @override
   Widget build(BuildContext context) {
@@ -371,12 +436,19 @@ class _PlayersPointsSection extends StatelessWidget {
     final players = visiblePlayers.isEmpty
         ? [
             for (final player in submission.players)
-              _ScorePlayer(id: player.id, name: 'Jugador ${player.id}'),
+              _ScorePlayer(
+                id: player.id,
+                name: 'Jugador ${player.id}',
+                points: scoresByPlayerId[player.id] ?? 0,
+              ),
           ]
         : visiblePlayers
               .map(
-                (player) =>
-                    _ScorePlayer(id: player.id, name: player.name.trim()),
+                (player) => _ScorePlayer(
+                  id: player.id,
+                  name: player.name.trim(),
+                  points: scoresByPlayerId[player.id] ?? 0,
+                ),
               )
               .toList(growable: false);
 
@@ -397,6 +469,7 @@ class _PlayersPointsSection extends StatelessWidget {
                           name: player.name.trim().isEmpty
                               ? 'Jugador ${player.id}'
                               : player.name.trim(),
+                          points: scoresByPlayerId[player.id] ?? 0,
                         ),
                       )
                       .toList(growable: false),
@@ -608,7 +681,7 @@ class _PlayerPointsTile extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '0 puntos',
+                      '${player.points} puntos',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.white.withValues(alpha: 0.84),
                         fontSize: 12.8,
@@ -627,10 +700,15 @@ class _PlayerPointsTile extends StatelessWidget {
 }
 
 class _ScorePlayer {
-  const _ScorePlayer({required this.id, required this.name});
+  const _ScorePlayer({
+    required this.id,
+    required this.name,
+    required this.points,
+  });
 
   final int id;
   final String name;
+  final int points;
 }
 
 class _ThemeSquareIcon extends StatelessWidget {
