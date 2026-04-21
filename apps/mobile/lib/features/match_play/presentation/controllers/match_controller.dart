@@ -4,6 +4,7 @@ import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
 import '../../../profile/domain/entities/user_stats_summary.dart';
 import '../../../premium/domain/services/entitlement_service.dart';
+import '../../../../core/services/analytics_service.dart';
 import '../../domain/entities/game_prompt.dart';
 import '../../domain/entities/match_level.dart';
 import '../../domain/entities/match_result.dart';
@@ -23,12 +24,14 @@ class MatchController extends ChangeNotifier {
     required CouplesContentRepository couplesContentRepository,
     required GameHistoryRepository historyRepository,
     required EntitlementService entitlementService,
+    required AnalyticsService analyticsService,
   }) : _engine = engine,
        _activeMatchRepository = activeMatchRepository,
        _friendsContentRepository = friendsContentRepository,
        _couplesContentRepository = couplesContentRepository,
        _historyRepository = historyRepository,
-       _entitlementService = entitlementService;
+       _entitlementService = entitlementService,
+       _analyticsService = analyticsService;
 
   final GameEngine _engine;
   final ActiveMatchRepository _activeMatchRepository;
@@ -36,6 +39,7 @@ class MatchController extends ChangeNotifier {
   final CouplesContentRepository _couplesContentRepository;
   final GameHistoryRepository _historyRepository;
   final EntitlementService _entitlementService;
+  final AnalyticsService _analyticsService;
 
   MatchSession? _session;
   MatchFinalResult? _finalResult;
@@ -120,6 +124,11 @@ class MatchController extends ChangeNotifier {
       _session = _engine.createMatch(setup: setup);
       _finalResult = null;
       _session = await _activeMatchRepository.save(_session!);
+      await _analyticsService.logGameStarted(
+        mode: setup.mode.name,
+        playersCount: setup.players.length,
+        startingLevel: setup.selectedTheme.toMatchLevel.name,
+      );
     } catch (_) {
       _error = 'No se pudo crear la partida.';
     }
@@ -194,6 +203,11 @@ class MatchController extends ChangeNotifier {
 
     _setLoading(true);
     try {
+      final pendingTurn = current.pendingTurn;
+      if (pendingTurn == null) {
+        _setLoading(false);
+        return null;
+      }
       final resolution = _engine.resolveTurn(
         session: current,
         didComplete: didComplete,
@@ -215,6 +229,12 @@ class MatchController extends ChangeNotifier {
       }
 
       _setLoading(false);
+      await _analyticsService.logRoundCompleted(
+        round: resolution.round,
+        didComplete: didComplete,
+        level: pendingTurn.level.name,
+        promptType: pendingTurn.promptKind.name,
+      );
       return resolution;
     } catch (_) {
       _error = 'No se pudo registrar el resultado del turno.';

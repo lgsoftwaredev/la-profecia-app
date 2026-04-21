@@ -9,6 +9,13 @@ class AppRouter {
   const AppRouter._();
 
   static Future<void> openProfileGuarded(BuildContext context) async {
+    await openGuarded(context, builder: (_) => const ProfilePage());
+  }
+
+  static Future<void> openGuarded(
+    BuildContext context, {
+    required WidgetBuilder builder,
+  }) async {
     final container = ProviderScope.containerOf(context, listen: false);
     if (!container.read(isAuthenticatedProvider)) {
       final didLogin = await Navigator.of(
@@ -26,8 +33,6 @@ class AppRouter {
       return;
     }
 
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const ProfilePage()));
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: builder));
   }
 }

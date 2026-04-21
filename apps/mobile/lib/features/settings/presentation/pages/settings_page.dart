@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_spacing.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../premium/presentation/pages/premium_menu_page.dart';
+import '../../../suggestions/domain/entities/suggestion.dart';
+import '../../../suggestions/presentation/pages/suggestion_compose_final_group_page.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
 import '../../../tutorial/presentation/pages/tutorial_page.dart';
 
@@ -13,6 +18,105 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   var _soundEnabled = true;
+
+  Future<SuggestionType?> _pickSuggestionType() {
+    return showModalBottomSheet<SuggestionType>(
+      context: context,
+      backgroundColor: const Color(0xFF0E1220),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.xl,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '¿Qué quieres proponer?',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  tileColor: Colors.white.withValues(alpha: 0.06),
+                  title: const Text(
+                    'Pregunta',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(SuggestionType.question),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  tileColor: Colors.white.withValues(alpha: 0.06),
+                  title: const Text(
+                    'Reto',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(SuggestionType.challenge),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openSuggestionFlow() async {
+    final type = await _pickSuggestionType();
+    if (type == null || !mounted) {
+      return;
+    }
+    final container = ProviderScope.containerOf(context, listen: false);
+    final isAuthenticated = container.read(isAuthenticatedProvider);
+    if (!isAuthenticated) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Inicia sesión'),
+            content: const Text(
+              'Debes iniciar sesión para proponer contenido.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Entendido'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SuggestionComposeFinalGroupPage(type: type),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,18 +207,26 @@ class _SettingsPageState extends State<SettingsPage> {
                             },
                           ),
                           const SizedBox(height: AppSpacing.xl),
-                          const _SettingsItemRow(
+                          _SettingsItemRow(
                             iconAsset:
                                 'assets/logo-icon-proponer-questions.png',
                             title: 'Proponer retos y preguntas',
                             premiumSubtitle: true,
+                            onTap: _openSuggestionFlow,
                           ),
                           const SizedBox(height: AppSpacing.xl),
-                          const _SettingsItemRow(
+                          _SettingsItemRow(
                             iconAsset:
                                 'assets/logo-icon-premium-corona-outlined.png',
                             title: 'Desbloquear',
                             trailing: _PremiumBadge(),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const PremiumMenuPage(),
+                                ),
+                              );
+                            },
                           ),
                           const SizedBox(height: AppSpacing.xl),
                           const _SettingsItemRow(

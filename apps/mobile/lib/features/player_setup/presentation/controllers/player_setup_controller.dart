@@ -135,6 +135,19 @@ class PlayerSetupController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setPremiumAccess(bool isPremium) {
+    if (_state.isPremium == isPremium) {
+      return;
+    }
+
+    final mustResetTheme = !isPremium && _state.selectedTheme.isPremiumOnly;
+    _state = _state.copyWith(
+      isPremium: isPremium,
+      selectedTheme: mustResetTheme ? GameStyleTheme.cielo : null,
+    );
+    notifyListeners();
+  }
+
   bool playerHasError(int playerId) {
     if (!_state.showValidationErrors) {
       return false;

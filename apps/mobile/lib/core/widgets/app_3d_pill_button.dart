@@ -5,6 +5,7 @@ class App3dPillButton extends StatefulWidget {
     required this.label,
     required this.color,
     this.textStyle,
+    this.leading,
     this.leadingIcon,
     this.leadingIconColor,
     this.leadingIconSize = 20,
@@ -21,11 +22,16 @@ class App3dPillButton extends StatefulWidget {
   }) : assert(
          gradientColors == null || gradientColors.length >= 2,
          'gradientColors must contain at least 2 colors',
+       ),
+       assert(
+         leading == null || leadingIcon == null,
+         'Use either leading or leadingIcon, not both',
        );
 
   final String label;
   final Color color;
   final TextStyle? textStyle;
+  final Widget? leading;
   final IconData? leadingIcon;
   final Color? leadingIconColor;
   final double leadingIconSize;
@@ -85,6 +91,15 @@ class _App3dPillButtonState extends State<App3dPillButton> {
           height: 1,
         );
     final spinnerColor = resolvedTextStyle?.color ?? const Color(0xFF4D586D);
+    final resolvedLeading =
+        widget.leading ??
+        (widget.leadingIcon == null
+            ? null
+            : Icon(
+                widget.leadingIcon,
+                size: widget.leadingIconSize,
+                color: widget.leadingIconColor ?? resolvedTextStyle?.color,
+              ));
 
     return Opacity(
       opacity: isEnabled ? 1 : 0.75,
@@ -148,18 +163,12 @@ class _App3dPillButtonState extends State<App3dPillButton> {
                               ),
                             ),
                           )
-                        : widget.leadingIcon == null
+                        : resolvedLeading == null
                         ? Text(widget.label, style: resolvedTextStyle)
                         : Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                widget.leadingIcon,
-                                size: widget.leadingIconSize,
-                                color:
-                                    widget.leadingIconColor ??
-                                    resolvedTextStyle?.color,
-                              ),
+                              resolvedLeading,
                               SizedBox(width: widget.leadingIconGap),
                               Text(widget.label, style: resolvedTextStyle),
                             ],

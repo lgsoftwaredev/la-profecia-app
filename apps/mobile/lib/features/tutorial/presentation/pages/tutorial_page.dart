@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../app/di/app_scope.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
@@ -32,6 +33,10 @@ class _TutorialPageState extends State<TutorialPage> {
 
   Future<void> _goNext() async {
     if (_currentIndex >= _totalPages - 1) {
+      if (!mounted) {
+        return;
+      }
+      await AppScope.I.analyticsService.logTutorialCompleted();
       if (!mounted) {
         return;
       }

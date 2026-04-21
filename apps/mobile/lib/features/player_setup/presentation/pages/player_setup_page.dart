@@ -5,6 +5,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
 import '../../../game_mode_selection/presentation/pages/home_page.dart';
 import '../../../match_play/presentation/providers/match_providers.dart';
+import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../domain/entities/game_setup_models.dart';
 import '../providers/player_setup_providers.dart';
@@ -30,11 +31,22 @@ class PlayerSetupPage extends ConsumerStatefulWidget {
 }
 
 class _PlayerSetupPageState extends ConsumerState<PlayerSetupPage> {
-  late final PlayerSetupParams _params = PlayerSetupParams(
-    mode: widget.mode,
-    isPremium: widget.isPremium,
-  );
+  late final PlayerSetupParams _params;
+  ProviderSubscription<bool>? _premiumSubscription;
   final Map<int, TextEditingController> _nameControllers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    final initialPremium = widget.isPremium || ref.read(premiumAccessProvider);
+    _params = PlayerSetupParams(mode: widget.mode, isPremium: initialPremium);
+    _premiumSubscription = ref.listenManual<bool>(premiumAccessProvider, (
+      previous,
+      next,
+    ) {
+      ref.read(playerSetupControllerProvider(_params)).setPremiumAccess(next);
+    }, fireImmediately: true);
+  }
 
   void _goToHome() {
     Navigator.of(context).pushAndRemoveUntil(
@@ -45,6 +57,7 @@ class _PlayerSetupPageState extends ConsumerState<PlayerSetupPage> {
 
   @override
   void dispose() {
+    _premiumSubscription?.close();
     for (final controller in _nameControllers.values) {
       controller.dispose();
     }

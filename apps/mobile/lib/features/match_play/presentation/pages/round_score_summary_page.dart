@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/providers/app_providers.dart';
+import '../../../../core/services/ad_service.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
 import '../../../player_setup/presentation/pages/truth_or_dare_selection_page.dart';
@@ -7,7 +10,7 @@ import 'final_judgment_page.dart';
 import 'round_score_summary_couple_page.dart';
 import 'round_score_summary_friends_page.dart';
 
-class RoundScoreSummaryPage extends StatelessWidget {
+class RoundScoreSummaryPage extends ConsumerWidget {
   const RoundScoreSummaryPage({
     required this.submission,
     required this.completedPlayerId,
@@ -28,8 +31,14 @@ class RoundScoreSummaryPage extends StatelessWidget {
   final bool endMatchOnNext;
 
   @override
-  Widget build(BuildContext context) {
-    void onNextRoundTap() {
+  Widget build(BuildContext context, WidgetRef ref) {
+    void onNextRoundTap() async {
+      await ref
+          .read(adServiceProvider)
+          .showInterstitialIfEligible(AdPlacement.roundSummaryToNextRound);
+      if (!context.mounted) {
+        return;
+      }
       if (endMatchOnNext) {
         Navigator.of(context).push(
           MaterialPageRoute<void>(

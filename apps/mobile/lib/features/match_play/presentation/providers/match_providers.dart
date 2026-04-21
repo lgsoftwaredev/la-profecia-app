@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/app_providers.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
 import '../../domain/entities/match_level.dart';
 import '../../domain/entities/match_result.dart';
@@ -87,5 +88,21 @@ final activeSetupSubmissionProvider = StateProvider<GameSetupSubmission?>((
 });
 
 final matchStatsSummaryProvider = FutureProvider<UserStatsSummary>((ref) async {
+  final currentUserId = ref.watch(
+    authSessionProvider.select((session) {
+      return session?.userId;
+    }),
+  );
+
+  if (currentUserId == null) {
+    return const UserStatsSummary(
+      matchesPlayed: 0,
+      accumulatedScore: 0,
+      wins: 0,
+      losses: 0,
+      history: <GameHistoryItem>[],
+    );
+  }
+
   return ref.read(matchControllerProvider).readSummary();
 });

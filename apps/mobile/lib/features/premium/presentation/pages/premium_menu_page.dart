@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/providers/app_providers.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
+import '../../../auth/presentation/pages/login_page.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../providers/premium_providers.dart';
+import '../providers/purchase_providers.dart';
 
-class PremiumMenuPage extends StatefulWidget {
+class PremiumMenuPage extends ConsumerStatefulWidget {
   const PremiumMenuPage({super.key});
 
   @override
-  State<PremiumMenuPage> createState() => _PremiumMenuPageState();
+  ConsumerState<PremiumMenuPage> createState() => _PremiumMenuPageState();
 }
 
-class _PremiumMenuPageState extends State<PremiumMenuPage> {
+class _PremiumMenuPageState extends ConsumerState<PremiumMenuPage> {
   static const _benefits = <String>[
     'Acceso a todos los niveles',
     'Inframundo',
@@ -21,7 +27,73 @@ class _PremiumMenuPageState extends State<PremiumMenuPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    Future<void>(() async {
+      final isAuthenticated = ref.read(isAuthenticatedProvider);
+      await ref
+          .read(analyticsServiceProvider)
+          .logPremiumCtaViewed(
+            source: 'premium_menu',
+            isGuest: !isAuthenticated,
+          );
+      await ref.read(purchaseControllerProvider.notifier).refreshCatalog();
+      await ref.read(premiumAccessProvider.notifier).refresh();
+    });
+  }
+
+  Future<void> _purchase() async {
+    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    if (!isAuthenticated) {
+      final didLogin = await Navigator.of(
+        context,
+      ).push<bool>(MaterialPageRoute<bool>(builder: (_) => const LoginPage()));
+      if (didLogin != true || !mounted) {
+        return;
+      }
+    }
+    await ref.read(purchaseControllerProvider.notifier).purchaseMonthly();
+    if (!mounted) {
+      return;
+    }
+    final message = ref.read(purchaseControllerProvider).message;
+    if (message != null && message.isNotEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _restore() async {
+    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    if (!isAuthenticated) {
+      final didLogin = await Navigator.of(
+        context,
+      ).push<bool>(MaterialPageRoute<bool>(builder: (_) => const LoginPage()));
+      if (didLogin != true || !mounted) {
+        return;
+      }
+    }
+    await ref.read(purchaseControllerProvider.notifier).restore();
+    if (!mounted) {
+      return;
+    }
+    final message = ref.read(purchaseControllerProvider).message;
+    if (message != null && message.isNotEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final purchaseState = ref.watch(purchaseControllerProvider);
+    final isPremium = ref.watch(premiumAccessProvider);
+    final monthlyOffer = purchaseState.catalog.isNotEmpty
+        ? purchaseState.catalog.first
+        : null;
+
     return Scaffold(
       extendBody: true,
       body: Stack(
@@ -118,7 +190,21 @@ class _PremiumMenuPageState extends State<PremiumMenuPage> {
                           const SizedBox(height: AppSpacing.md),
                           _BenefitsCard(benefits: _benefits),
                           const SizedBox(height: AppSpacing.lg),
-                          const _PremiumCtaButton(),
+                          _PremiumCtaButton(
+                            loading: purchaseState.loading,
+                            enabled: !isPremium,
+                            label: isPremium
+                                ? 'Premium activo'
+                                : monthlyOffer == null
+                                ? 'Quiero ser Premium'
+                                : 'Quiero ser Premium ${monthlyOffer.price}',
+                            onTap: _purchase,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          TextButton(
+                            onPressed: purchaseState.loading ? null : _restore,
+                            child: const Text('Restaurar compra'),
+                          ),
                         ],
                       ),
                     ),
@@ -360,51 +446,45 @@ class _BenefitRow extends StatelessWidget {
 }
 
 class _PremiumCtaButton extends StatelessWidget {
-  const _PremiumCtaButton();
+  const _PremiumCtaButton({
+    required this.label,
+    required this.enabled,
+    required this.loading,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool enabled;
+  final bool loading;
+  final Future<void> Function() onTap;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final iconLeft = (constraints.maxWidth * 0.20)
-            .clamp(24, 120)
-            .toDouble();
-
-        return SizedBox(
-          height: 74,
-          child: Stack(
-            children: [
-              App3dPillButton(
-                label: 'Quiero ser Premium',
-                color: const Color(0xFFFFE661),
-                gradientColors: const [Color(0xFFFFE95C), Color(0xFFF0A43B)],
-                height: 66,
-                depth: 4.2,
-                borderRadius: 18,
-                textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: const Color(0xFFA66700),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 33 * 0.56,
-                ),
-                onTap: () {},
-              ),
-              Positioned(
-                left: iconLeft,
-                top: 20,
-                child: IgnorePointer(
-                  child: Image.asset(
-                    'assets/premium-icon-logo.png',
-                    width: 24,
-                    height: 24,
-                    fit: BoxFit.contain,
-                    color: const Color(0xFFA66700),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    return SizedBox(
+      height: 74,
+      child: App3dPillButton(
+        label: label,
+        color: const Color(0xFFFFE661),
+        gradientColors: const [Color(0xFFFFE95C), Color(0xFFF0A43B)],
+        height: 66,
+        depth: 4.2,
+        borderRadius: 18,
+        isLoading: loading,
+        leadingIconGap: 6,
+        leading: Image.asset(
+          'assets/premium-icon-logo.png',
+          width: 22,
+          height: 22,
+          fit: BoxFit.contain,
+          color: const Color(0xFFA66700),
+        ),
+        textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+          color: const Color(0xFFA66700),
+          fontWeight: FontWeight.w700,
+          fontSize: 33 * 0.56,
+        ),
+        onTap: !enabled || loading ? null : () => onTap(),
+      ),
     );
   }
 }

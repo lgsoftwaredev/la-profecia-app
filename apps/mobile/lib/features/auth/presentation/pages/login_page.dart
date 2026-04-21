@@ -231,17 +231,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             },
                           ),
                           const SizedBox(height: AppSpacing.sm),
-                          Align(
-                            child: Text(
-                              '¿Olvidaste la contraseña?',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: const Color(0xFF36A5FF),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 27 * 0.50,
-                                  ),
-                            ),
-                          ),
+                          // Align(
+                          //   child: Text(
+                          //     '¿Olvidaste la contraseña?',
+                          //     style: Theme.of(context).textTheme.titleMedium
+                          //         ?.copyWith(
+                          //           color: const Color(0xFF36A5FF),
+                          //           fontWeight: FontWeight.w600,
+                          //           fontSize: 27 * 0.50,
+                          //         ),
+                          //   ),
+                          // ),
                           const SizedBox(height: AppSpacing.lg),
                           _PrimaryAuthButton(
                             text: isSubmitting

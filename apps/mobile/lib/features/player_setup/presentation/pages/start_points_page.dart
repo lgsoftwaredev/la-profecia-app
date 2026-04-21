@@ -9,6 +9,8 @@ import '../../../match_play/domain/entities/match_level.dart';
 import '../../../match_play/domain/entities/truth_or_dare_option.dart';
 import '../../../match_play/presentation/pages/truth_or_dare_turn_page.dart';
 import '../../../match_play/presentation/providers/match_providers.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../premium/presentation/pages/premium_menu_page.dart';
 import '../../domain/entities/game_setup_models.dart';
 import '../widgets/level_card_frame.dart';
 import '../widgets/start_points_roulette_wheel.dart';
@@ -262,6 +264,21 @@ class _StartPointsPageState extends ConsumerState<StartPointsPage> {
                             enabled: !_isLocked(theme, availableLevels),
                             onTap: () {
                               if (_isLocked(theme, availableLevels)) {
+                                final isGuest = !ref.read(
+                                  isAuthenticatedProvider,
+                                );
+                                ref
+                                    .read(analyticsServiceProvider)
+                                    .logPremiumCtaViewed(
+                                      source: 'locked_level_picker',
+                                      isGuest: isGuest,
+                                      level: theme.toMatchLevel.name,
+                                    );
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const PremiumMenuPage(),
+                                  ),
+                                );
                                 return;
                               }
                               setState(() {

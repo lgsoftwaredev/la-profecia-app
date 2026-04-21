@@ -17,6 +17,14 @@ class FinalGroupChallengeModePage extends ConsumerStatefulWidget {
     this.onSendTap,
     this.onPlayAgainTap,
     this.onBackToHomeTap,
+    this.onSuccessTap,
+    this.titleText,
+    this.subtitleText,
+    this.actorLabelText,
+    this.inputHintText,
+    this.sendButtonLabel = 'Enviar',
+    this.showReplayActions = true,
+    this.showDefaultFailureMessage = true,
     super.key,
   });
 
@@ -25,6 +33,14 @@ class FinalGroupChallengeModePage extends ConsumerStatefulWidget {
   final Future<bool> Function(String)? onSendTap;
   final VoidCallback? onPlayAgainTap;
   final VoidCallback? onBackToHomeTap;
+  final VoidCallback? onSuccessTap;
+  final String? titleText;
+  final String? subtitleText;
+  final String? actorLabelText;
+  final String? inputHintText;
+  final String sendButtonLabel;
+  final bool showReplayActions;
+  final bool showDefaultFailureMessage;
 
   @override
   ConsumerState<FinalGroupChallengeModePage> createState() =>
@@ -91,18 +107,32 @@ class _FinalGroupChallengeModePageState
 
     FocusScope.of(context).unfocus();
     if (success) {
-      _defaultPlayAgain();
+      final onSuccessTap = widget.onSuccessTap;
+      if (onSuccessTap != null) {
+        onSuccessTap();
+        return;
+      }
+      if (widget.showReplayActions) {
+        _defaultPlayAgain();
+        return;
+      }
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+        return;
+      }
       return;
     }
 
     setState(() {
       _isSending = false;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('No se pudo guardar, debes iniciar sesión.'),
-      ),
-    );
+    if (widget.showDefaultFailureMessage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo guardar, debes iniciar sesión.'),
+        ),
+      );
+    }
   }
 
   @override
@@ -187,7 +217,7 @@ class _FinalGroupChallengeModePageState
                         children: [
                           const SizedBox(height: AppSpacing.sm),
                           Text(
-                            'Juicio Final',
+                            widget.titleText ?? 'Juicio Final',
                             style: Theme.of(context).textTheme.headlineMedium
                                 ?.copyWith(
                                   color: _modeAccent,
@@ -197,8 +227,9 @@ class _FinalGroupChallengeModePageState
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${widget.punishedLabel} deberá cumplir el castigo\n'
-                            'elegido por...',
+                            widget.subtitleText ??
+                                '${widget.punishedLabel} deberá cumplir el castigo\n'
+                                    'elegido por...',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.titleLarge
                                 ?.copyWith(
@@ -226,7 +257,7 @@ class _FinalGroupChallengeModePageState
                               ),
                             ),
                             child: Text(
-                              'El grupo',
+                              widget.actorLabelText ?? 'El grupo',
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(
                                     color: Colors.white.withValues(alpha: 0.94),
@@ -269,7 +300,9 @@ class _FinalGroupChallengeModePageState
                                     fontWeight: FontWeight.w500,
                                   ),
                               decoration: InputDecoration(
-                                hintText: 'Escribe el castigo',
+                                hintText:
+                                    widget.inputHintText ??
+                                    'Escribe el castigo',
                                 hintStyle: Theme.of(context)
                                     .textTheme
                                     .titleLarge
@@ -289,7 +322,7 @@ class _FinalGroupChallengeModePageState
                           SizedBox(
                             width: 126,
                             child: App3dPillButton(
-                              label: 'Enviar',
+                              label: widget.sendButtonLabel,
                               color: _modeButtonGradient.first,
                               gradientColors: _modeButtonGradient,
                               height: 54,
@@ -305,41 +338,46 @@ class _FinalGroupChallengeModePageState
                               onTap: _isSending ? null : _handleSend,
                             ),
                           ),
-                          const SizedBox(height: AppSpacing.xl * 1.45),
-                          App3dPillButton(
-                            label: 'Jugar de nuevo',
-                            color: const Color(0xFFE9EBF1),
-                            gradientColors: const [
-                              Color(0xFFF7F8FA),
-                              Color(0xFFE4E7EE),
-                            ],
-                            height: 62,
-                            depth: 4.4,
-                            borderRadius: 16,
-                            textStyle: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  color: const Color(0xFF4D586D),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 32 * 0.58,
-                                ),
-                            onTap: widget.onPlayAgainTap ?? _defaultPlayAgain,
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          App3dPillButton(
-                            label: 'Volver al inicio',
-                            color: _modeButtonGradient.first,
-                            gradientColors: _modeButtonGradient,
-                            height: 62,
-                            depth: 4.4,
-                            borderRadius: 16,
-                            textStyle: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 32 * 0.58,
-                                ),
-                            onTap: widget.onBackToHomeTap ?? _defaultBackToHome,
-                          ),
+                          if (widget.showReplayActions) ...[
+                            const SizedBox(height: AppSpacing.xl * 1.45),
+                            App3dPillButton(
+                              label: 'Jugar de nuevo',
+                              color: const Color(0xFFE9EBF1),
+                              gradientColors: const [
+                                Color(0xFFF7F8FA),
+                                Color(0xFFE4E7EE),
+                              ],
+                              height: 62,
+                              depth: 4.4,
+                              borderRadius: 16,
+                              textStyle: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: const Color(0xFF4D586D),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 32 * 0.58,
+                                  ),
+                              onTap: widget.onPlayAgainTap ?? _defaultPlayAgain,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            App3dPillButton(
+                              label: 'Volver al inicio',
+                              color: _modeButtonGradient.first,
+                              gradientColors: _modeButtonGradient,
+                              height: 62,
+                              depth: 4.4,
+                              borderRadius: 16,
+                              textStyle: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 32 * 0.58,
+                                  ),
+                              onTap:
+                                  widget.onBackToHomeTap ?? _defaultBackToHome,
+                            ),
+                          ] else ...[
+                            const SizedBox(height: AppSpacing.xl),
+                          ],
                         ],
                       ),
                     ),

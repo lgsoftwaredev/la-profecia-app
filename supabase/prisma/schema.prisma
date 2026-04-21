@@ -94,6 +94,7 @@ model Profile {
   sessionsOwned      GameSession[]        @relation("OwnerSessions")
   submissions        UserSubmission[]
   premiumAccesses    PremiumAccess[]
+  pushTokens         PushDeviceToken[]
   history            GameHistorySummary[]
   reviewedSubmissions SubmissionReview[]  @relation("ReviewerReviews")
   questionsCreated   Question[]
@@ -392,4 +393,18 @@ model PremiumAccess {
   product               PremiumProduct?     @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@index([userId, status])
+}
+
+model PushDeviceToken {
+  id                   String   @id @default(uuid()) @db.Uuid
+  installationId       String   @unique
+  userId               String?  @db.Uuid
+  platform             String
+  fcmToken             String
+  notificationsEnabled Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 Profile? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
 }

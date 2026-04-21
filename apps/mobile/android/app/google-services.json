@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "809821639133",
+    "project_id": "la-profecia-7e09f",
+    "storage_bucket": "la-profecia-7e09f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:809821639133:android:58d314a98318b32fc0e634",
+        "android_client_info": {
+          "package_name": "com.laprofecia.verdadoreto"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "809821639133-k3qdtke42oap1slac1qit8ke2234l6dm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBqvC6dNX98chYxQgRZa2qKJuWWMLQnyqw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "809821639133-k3qdtke42oap1slac1qit8ke2234l6dm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "809821639133-j2bgu86u52bssac9se06357d7615mkva.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.laprofecia.verdadoreto"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
