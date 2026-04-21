@@ -42,13 +42,6 @@ No priorizar funcionalidades online multijugador en tiempo real.
   - contenido administrable
   - sugerencias/moderación
 
-## Lo que Codex debe evitar
-- Reescribir el proyecto completo
-- Introducir multiplayer online
-- Acoplar UI con Supabase directamente
-- Hacer auth obligatoria para jugar el tutorial o flujo base
-- Mezclar anuncios, premium y lógica de niveles de forma desordenada
-
 ## Validación mínima antes de cerrar tareas
 - flutter analyze
 - dart format .
