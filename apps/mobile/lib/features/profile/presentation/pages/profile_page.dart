@@ -3,15 +3,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/providers/app_providers.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/global_bottom_menu.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../game_mode_selection/presentation/pages/home_page.dart';
 import '../../../match_play/presentation/providers/match_providers.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
 import '../../../player_setup/presentation/widgets/level_card_frame.dart';
+import '../../../premium/presentation/pages/premium_menu_page.dart';
+import '../../../settings/presentation/pages/settings_page.dart';
 import '../../domain/entities/user_stats_summary.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({
+    this.showBottomMenu = true,
+    this.isTabActive = true,
+    this.onGlobalMenuRequested,
+    super.key,
+  });
+
+  final bool showBottomMenu;
+  final bool isTabActive;
+  final ValueChanged<GlobalBottomMenuItem>? onGlobalMenuRequested;
 
   @override
   ConsumerState<ProfilePage> createState() => _ProfilePageState();
@@ -20,10 +33,56 @@ class ProfilePage extends ConsumerStatefulWidget {
 class _ProfilePageState extends ConsumerState<ProfilePage> {
   var _authFlowStarted = false;
 
+  Future<void> _onBottomMenuItemSelected(GlobalBottomMenuItem item) async {
+    if (widget.onGlobalMenuRequested != null) {
+      widget.onGlobalMenuRequested!(item);
+      return;
+    }
+
+    if (item == GlobalBottomMenuItem.profile) {
+      return;
+    }
+
+    if (item == GlobalBottomMenuItem.home) {
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.popUntil((route) => route.isFirst);
+        return;
+      }
+      navigator.pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => const HomePage()),
+      );
+      return;
+    }
+
+    if (item == GlobalBottomMenuItem.ranking) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => const PremiumMenuPage()),
+      );
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
-    if (!ref.read(isAuthenticatedProvider)) {
+    if (widget.isTabActive && !ref.read(isAuthenticatedProvider)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _openLoginIfNeeded();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfilePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isTabActive &&
+        widget.isTabActive &&
+        !ref.read(isAuthenticatedProvider)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _openLoginIfNeeded();
       });
@@ -43,6 +102,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       return;
     }
     if (didLogin == true && ref.read(isAuthenticatedProvider)) {
+      return;
+    }
+    if (widget.onGlobalMenuRequested != null) {
+      widget.onGlobalMenuRequested!(GlobalBottomMenuItem.home);
       return;
     }
     if (Navigator.of(context).canPop()) {
@@ -109,6 +172,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             const Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
           ],
         ),
+        bottomNavigationBar: widget.showBottomMenu
+            ? GlobalBottomMenu(
+                currentItem: GlobalBottomMenuItem.profile,
+                onItemSelected: _onBottomMenuItemSelected,
+              )
+            : null,
       );
     }
 
@@ -160,6 +229,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       const Spacer(),
                       _HeaderSideButton(
                         onTap: () {
+                          if (widget.onGlobalMenuRequested != null) {
+                            widget.onGlobalMenuRequested!(
+                              GlobalBottomMenuItem.home,
+                            );
+                            return;
+                          }
                           if (Navigator.of(context).canPop()) {
                             Navigator.of(context).pop();
                           }
@@ -226,6 +301,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ),
         ],
       ),
+      bottomNavigationBar: widget.showBottomMenu
+          ? GlobalBottomMenu(
+              currentItem: GlobalBottomMenuItem.profile,
+              onItemSelected: _onBottomMenuItemSelected,
+            )
+          : null,
     );
   }
 

@@ -3,8 +3,11 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/asset_looping_background_video.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../game_mode_selection/presentation/pages/main_menu_shell_page.dart';
+import '../../data/tutorial_preferences.dart';
 import 'tutorial_page.dart';
 
 class SplashPage extends StatefulWidget {
@@ -32,7 +35,7 @@ class _SplashPageState extends State<SplashPage> {
   void initState() {
     super.initState();
     _currentIndex = _random.nextInt(_messages.length);
-    _navigationTimer = Timer(const Duration(seconds: 2), _goToTutorial);
+    _navigationTimer = Timer(const Duration(seconds: 4), _goToTutorial);
     _messageTimer = Timer.periodic(
       const Duration(milliseconds: 3000),
       (_) => _rotateMessage(),
@@ -40,12 +43,20 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   void _goToTutorial() {
+    _goToNextPage();
+  }
+
+  Future<void> _goToNextPage() async {
+    final hasSeenTutorial = await TutorialPreferences.isTutorialSeen();
     if (!mounted) {
       return;
     }
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => const TutorialPage()),
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            hasSeenTutorial ? const MainMenuShellPage() : const TutorialPage(),
+      ),
     );
   }
 
@@ -77,7 +88,10 @@ class _SplashPageState extends State<SplashPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset('assets/background-splash.png', fit: BoxFit.cover),
+          const AssetLoopingBackgroundVideo(
+            assetPath: 'assets/videos/video-fondo-pantalla-inicio.mp4',
+            fallbackAssetPath: 'assets/background-splash.png',
+          ),
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(

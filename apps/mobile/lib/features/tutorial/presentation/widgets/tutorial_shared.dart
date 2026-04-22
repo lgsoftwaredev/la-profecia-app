@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/asset_looping_background_video.dart';
 
 const _tutorialBottomReservedSpace = 190.0;
 
 class TutorialBackground extends StatelessWidget {
   const TutorialBackground({
-    required this.assetPath,
+    this.assetPath,
+    this.videoAssetPath,
     required this.child,
     this.bottomReservedSpace = _tutorialBottomReservedSpace,
     super.key,
-  });
+  }) : assert(
+         assetPath != null || videoAssetPath != null,
+         'Provide assetPath or videoAssetPath.',
+       );
 
-  final String assetPath;
+  final String? assetPath;
+  final String? videoAssetPath;
   final Widget child;
   final double bottomReservedSpace;
 
@@ -21,7 +27,13 @@ class TutorialBackground extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset(assetPath, fit: BoxFit.cover),
+        if (videoAssetPath != null)
+          AssetLoopingBackgroundVideo(
+            assetPath: videoAssetPath!,
+            fallbackAssetPath: assetPath,
+          )
+        else
+          Image.asset(assetPath!, fit: BoxFit.cover),
         Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(

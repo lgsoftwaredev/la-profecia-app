@@ -47,6 +47,7 @@ class TutorialThirdView extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.lg),
             const _TutorialLevelCard(
+              cardIndex: 0,
               borderColor: AppColors.secondary,
               titleColor: AppColors.secondary,
               iconAsset: 'assets/cielo-icon-logo.png',
@@ -58,6 +59,7 @@ class TutorialThirdView extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xxl),
             const _TutorialLevelCard(
+              cardIndex: 1,
               borderColor: Color(0xFF00D359),
               titleColor: Color(0xFF00D359),
               iconAsset: 'assets/tierra-icon-logo.png',
@@ -70,6 +72,7 @@ class TutorialThirdView extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xxl),
             const _TutorialLevelCard(
+              cardIndex: 2,
               borderColor: Color(0xFFFF2B2B),
               titleColor: Color(0xFFFF2B2B),
               iconAsset: 'assets/infierno-icon-logo.png',
@@ -83,6 +86,7 @@ class TutorialThirdView extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xxl),
             const _TutorialLevelCard(
+              cardIndex: 3,
               borderColor: Color(0xFFB02DFF),
               titleColor: Color(0xFFC246FF),
               iconAsset: 'assets/inframundo-icon-logo.png',
@@ -114,6 +118,7 @@ class TutorialThirdView extends StatelessWidget {
 
 class _TutorialLevelCard extends StatelessWidget {
   const _TutorialLevelCard({
+    required this.cardIndex,
     required this.borderColor,
     required this.titleColor,
     required this.iconAsset,
@@ -129,6 +134,7 @@ class _TutorialLevelCard extends StatelessWidget {
     this.cardHeight = 128,
   });
 
+  final int cardIndex;
   final Color borderColor;
   final Color titleColor;
   final String iconAsset;
@@ -335,19 +341,23 @@ class _TutorialLevelCard extends StatelessWidget {
                       bottom: 0,
                       width: characterWidth,
                       height: leftCharacterHeight,
-                      child: Transform.translate(
-                        offset: leftCharacterOffset,
-                        child: OverflowBox(
-                          minWidth: characterWidth,
-                          maxWidth: characterWidth * 2.2,
-                          minHeight: leftCharacterHeight,
-                          maxHeight: leftCharacterHeight,
-                          alignment: Alignment.bottomLeft,
-                          child: Image.asset(
-                            characterAsset,
-                            height: leftCharacterHeight,
-                            fit: BoxFit.fitHeight,
+                      child: _AnimatedTutorialCharacter(
+                        fromLeft: true,
+                        delayMs: 120 + (cardIndex * 140),
+                        child: Transform.translate(
+                          offset: leftCharacterOffset,
+                          child: OverflowBox(
+                            minWidth: characterWidth,
+                            maxWidth: characterWidth * 2.2,
+                            minHeight: leftCharacterHeight,
+                            maxHeight: leftCharacterHeight,
                             alignment: Alignment.bottomLeft,
+                            child: Image.asset(
+                              characterAsset,
+                              height: leftCharacterHeight,
+                              fit: BoxFit.fitHeight,
+                              alignment: Alignment.bottomLeft,
+                            ),
                           ),
                         ),
                       ),
@@ -358,19 +368,23 @@ class _TutorialLevelCard extends StatelessWidget {
                       bottom: 0,
                       width: characterWidth,
                       height: rightCharacterHeight,
-                      child: Transform.translate(
-                        offset: rightCharacterOffset,
-                        child: OverflowBox(
-                          minWidth: characterWidth,
-                          maxWidth: characterWidth * 2.2,
-                          minHeight: rightCharacterHeight,
-                          maxHeight: rightCharacterHeight,
-                          alignment: Alignment.bottomRight,
-                          child: Image.asset(
-                            characterAsset,
-                            height: rightCharacterHeight,
-                            fit: BoxFit.fitHeight,
+                      child: _AnimatedTutorialCharacter(
+                        fromLeft: false,
+                        delayMs: 120 + (cardIndex * 140),
+                        child: Transform.translate(
+                          offset: rightCharacterOffset,
+                          child: OverflowBox(
+                            minWidth: characterWidth,
+                            maxWidth: characterWidth * 2.2,
+                            minHeight: rightCharacterHeight,
+                            maxHeight: rightCharacterHeight,
                             alignment: Alignment.bottomRight,
+                            child: Image.asset(
+                              characterAsset,
+                              height: rightCharacterHeight,
+                              fit: BoxFit.fitHeight,
+                              alignment: Alignment.bottomRight,
+                            ),
                           ),
                         ),
                       ),
@@ -397,6 +411,58 @@ class _TutorialLevelCard extends StatelessWidget {
           if (showNewBadge)
             const Positioned(top: -8, left: -6, child: _TutorialNewBadge()),
         ],
+      ),
+    );
+  }
+}
+
+class _AnimatedTutorialCharacter extends StatefulWidget {
+  const _AnimatedTutorialCharacter({
+    required this.child,
+    required this.fromLeft,
+    required this.delayMs,
+  });
+
+  final Widget child;
+  final bool fromLeft;
+  final int delayMs;
+
+  @override
+  State<_AnimatedTutorialCharacter> createState() =>
+      _AnimatedTutorialCharacterState();
+}
+
+class _AnimatedTutorialCharacterState
+    extends State<_AnimatedTutorialCharacter> {
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(Duration(milliseconds: widget.delayMs), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _visible = true;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hiddenOffset = widget.fromLeft
+        ? const Offset(-0.22, 0.08)
+        : const Offset(0.22, 0.08);
+    return AnimatedSlide(
+      offset: _visible ? Offset.zero : hiddenOffset,
+      duration: const Duration(milliseconds: 480),
+      curve: Curves.easeOutCubic,
+      child: AnimatedOpacity(
+        opacity: _visible ? 1 : 0,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
       ),
     );
   }

@@ -10,6 +10,7 @@ class TutorialFirstView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const TutorialBackground(
+      videoAssetPath: 'assets/videos/tutorial-1-pantalla-inicio.mp4',
       assetPath: 'assets/background-tutorial-1.png',
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -42,18 +43,12 @@ class _TutorialIntroCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Image.asset(
-                  'assets/icon-crystal-ball-tutorial-1.png',
-                  width: 70,
-                  height: 70,
-                  fit: BoxFit.contain,
-                ),
+                Image.asset('assets/icon-crystal-ball-tutorial-1.png', width: 70, height: 70, fit: BoxFit.contain),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text.rich(
                     TextSpan(
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontSize: 17, height: 1.2),
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontSize: 17, height: 1.2),
                       children: const [
                         TextSpan(text: 'Descubre quién dice '),
                         TextSpan(
@@ -72,25 +67,18 @@ class _TutorialIntroCard extends StatelessWidget {
             const SizedBox(height: 18),
             Text.rich(
               TextSpan(
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(fontSize: 14, height: 1.35),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 14, height: 1.35),
                 children: const [
                   TextSpan(text: 'La '),
                   TextSpan(
                     text: 'Profecía',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
                   ),
                   TextSpan(
                     text:
                         ' es un juego de preguntas y retos extremos que pone a prueba a tus amigos o a tu pareja.\n\n',
                   ),
-                  TextSpan(
-                    text: 'Si llegan al final sin remordimientos... ganan.\n\n',
-                  ),
+                  TextSpan(text: 'Si llegan al final sin remordimientos... ganan.\n\n'),
                   TextSpan(text: 'Si no... '),
                   TextSpan(
                     text: 'la profecía tenía razón.',

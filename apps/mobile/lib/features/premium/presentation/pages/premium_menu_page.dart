@@ -1,29 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../app/providers/app_providers.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/widgets/app_3d_pill_button.dart';
+import '../../../../core/widgets/global_bottom_menu.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../game_mode_selection/presentation/pages/home_page.dart';
+import '../../../settings/presentation/pages/settings_page.dart';
 import '../providers/premium_providers.dart';
 import '../providers/purchase_providers.dart';
 
 class PremiumMenuPage extends ConsumerStatefulWidget {
-  const PremiumMenuPage({super.key});
+  const PremiumMenuPage({
+    this.showBottomMenu = true,
+    this.onGlobalMenuRequested,
+    super.key,
+  });
+
+  final bool showBottomMenu;
+  final ValueChanged<GlobalBottomMenuItem>? onGlobalMenuRequested;
 
   @override
   ConsumerState<PremiumMenuPage> createState() => _PremiumMenuPageState();
 }
 
 class _PremiumMenuPageState extends ConsumerState<PremiumMenuPage> {
-  static const _benefits = <String>[
-    'Acceso a todos los niveles',
-    'Inframundo',
-    'Cartas exclusivas +18',
-    'Eventos más intensos',
-    'Sin interrupciones',
-    'Sin anuncios',
+  static const _policiesUrl =
+      'https://www.laprofecia.app/condiciones-y-politicas';
+  static const _premiumExtraBenefits = <String>[
+    'Nuevo nivel:\nInframundo.',
+    'Cartas exclusivas y\npersonalizadas.',
+    'Eventos mucho más\nintensos.',
+    'Sistema de efectos\nvigentes.',
+    'Sistema de\npreferencias.',
+    'Crea retos y\npreguntas.',
   ];
 
   @override
@@ -86,6 +99,66 @@ class _PremiumMenuPageState extends ConsumerState<PremiumMenuPage> {
     }
   }
 
+  Future<void> _openPolicies() async {
+    final opened = await launchUrl(
+      Uri.parse(_policiesUrl),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir el enlace')),
+      );
+    }
+  }
+
+  void _closePremiumMenu() {
+    if (widget.onGlobalMenuRequested != null) {
+      widget.onGlobalMenuRequested!(GlobalBottomMenuItem.home);
+      return;
+    }
+
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    navigator.pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const HomePage()),
+    );
+  }
+
+  Future<void> _onBottomMenuItemSelected(GlobalBottomMenuItem item) async {
+    if (widget.onGlobalMenuRequested != null) {
+      widget.onGlobalMenuRequested!(item);
+      return;
+    }
+
+    if (item == GlobalBottomMenuItem.ranking) {
+      return;
+    }
+
+    if (item == GlobalBottomMenuItem.home) {
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.popUntil((route) => route.isFirst);
+        return;
+      }
+      navigator.pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => const HomePage()),
+      );
+      return;
+    }
+
+    if (item == GlobalBottomMenuItem.profile) {
+      await AppRouter.openProfileGuarded(context, replace: true);
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const SettingsPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final purchaseState = ref.watch(purchaseControllerProvider);
@@ -99,113 +172,143 @@ class _PremiumMenuPageState extends ConsumerState<PremiumMenuPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset('assets/background-home.png', fit: BoxFit.cover),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0x54060314),
-                  const Color(0xFF06020F).withValues(alpha: 0.98),
-                ],
-              ),
-            ),
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment(-0.84, -1.02),
-                radius: 0.92,
-                colors: [Color(0xA06E3A0B), Colors.transparent],
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: const AssetImage('assets/background-premium.png'),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.bottomCenter,
+                ),
               ),
             ),
           ),
           SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                2,
+                AppSpacing.lg,
+                170,
+              ),
               child: Column(
                 children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.only(bottom: 180),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: AppSpacing.md),
-                          Image.asset(
-                            'assets/premium-icon-logo.png',
-                            width: 72,
-                            height: 54,
-                            fit: BoxFit.contain,
-                            color: const Color(0xFFF6CD41),
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                          Image.asset(
-                            'assets/logo-+18.png',
-                            width: 170,
-                            fit: BoxFit.contain,
-                          ),
-                          const SizedBox(height: AppSpacing.xl),
-                          Text.rich(
-                            TextSpan(
-                              text: 'El descenso completo\n',
-                              children: [
-                                TextSpan(
-                                  text: 'no es gratuito.',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineMedium
-                                      ?.copyWith(
-                                        color: const Color(0xFFE9BF31),
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 52 * 0.64,
-                                        height: 1.1,
-                                      ),
-                                ),
-                              ],
-                            ),
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.95),
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 52 * 0.64,
-                                  height: 1.1,
-                                ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Algunos límites cuestan.',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.82),
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 34 * 0.56,
-                                ),
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          _PremiumHintRow(),
-                          const SizedBox(height: AppSpacing.md),
-                          _BenefitsCard(benefits: _benefits),
-                          const SizedBox(height: AppSpacing.lg),
-                          _PremiumCtaButton(
-                            loading: purchaseState.loading,
-                            enabled: !isPremium,
-                            label: isPremium
-                                ? 'Premium activo'
-                                : monthlyOffer == null
-                                ? 'Quiero ser Premium'
-                                : 'Quiero ser Premium ${monthlyOffer.price}',
-                            onTap: _purchase,
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          TextButton(
-                            onPressed: purchaseState.loading ? null : _restore,
-                            child: const Text('Restaurar compra'),
-                          ),
-                        ],
+                  Row(
+                    children: [
+                      const Spacer(),
+                      IconButton(
+                        onPressed: _closePremiumMenu,
+                        icon: const Icon(Icons.close_rounded),
+                        color: Colors.white,
+                        iconSize: 36,
+                      ),
+                    ],
+                  ),
+                  Image.asset(
+                    'assets/logo-simple-premium.png',
+                    width: 210,
+                    fit: BoxFit.contain,
+                  ),
+                  Text.rich(
+                    TextSpan(
+                      text: 'La Profecía ',
+                      children: [
+                        TextSpan(
+                          text: 'sin límites',
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                color: const Color(0xFFF0D148),
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ],
+                    ),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Todos los niveles, más personalizado y\nsin interrupciones.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.88),
+                      height: 1.28,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  _PremiumBenefitsPanel(extraBenefits: _premiumExtraBenefits),
+                  const SizedBox(height: AppSpacing.md),
+                  Image.asset(
+                    'assets/divider-premium.png',
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Selecciona tu plan',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _PlanCard(
+                          titleNumber: '1',
+                          title: 'Semana',
+                          price: '\$1.99',
+                          selected: false,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: _PlanCard(
+                          titleNumber: '1',
+                          title: 'Mes',
+                          price: monthlyOffer?.price ?? '\$4.99',
+                          oldPrice: '\$7.98',
+                          discountLabel: '-37,5%',
+                          selected: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _PremiumCtaButton(
+                    loading: purchaseState.loading,
+                    enabled: !isPremium,
+                    label: isPremium ? 'Premium activo' : 'Empezar ahora',
+                    onTap: _purchase,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Cancela cuando quieras. Gracias por apoyarnos, duramos\nmeses construyéndolo para ti.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  TextButton(
+                    onPressed: _openPolicies,
+                    child: Text(
+                      'Condiciones - politicas',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.95),
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: purchaseState.loading ? null : _restore,
+                    child: Text(
+                      'Restaurar compra',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.7),
                       ),
                     ),
                   ),
@@ -215,120 +318,36 @@ class _PremiumMenuPageState extends ConsumerState<PremiumMenuPage> {
           ),
         ],
       ),
+      bottomNavigationBar: widget.showBottomMenu
+          ? GlobalBottomMenu(
+              currentItem: GlobalBottomMenuItem.ranking,
+              onItemSelected: _onBottomMenuItemSelected,
+            )
+          : null,
     );
   }
 }
 
-class _PremiumHintRow extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 60,
-          height: 60,
-          child: Center(
-            child: Image.asset(
-              'assets/logo-icon-premium-container.png',
-              width: 60,
-              height: 60,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: 'Hasta ',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.95),
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-                TextSpan(
-                  text: 'Premium',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.95),
-                    fontStyle: FontStyle.italic,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                TextSpan(
-                  text: ' y desbloquea los\ndemás estilos de juego',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.95),
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Container(
-          height: 42,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFE55D), Color(0xFFF0A91B)],
-            ),
-          ),
-          child: Row(
-            children: [
-              Image.asset(
-                'assets/premium-icon-logo.png',
-                width: 20,
-                height: 20,
-                fit: BoxFit.contain,
-                color: const Color(0xFF865E00),
-              ),
-              const SizedBox(width: AppSpacing.xxs),
-              Text(
-                'Premium',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: const Color(0xFF865E00),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 30 * 0.56,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
+class _PremiumBenefitsPanel extends StatelessWidget {
+  const _PremiumBenefitsPanel({required this.extraBenefits});
 
-class _BenefitsCard extends StatelessWidget {
-  const _BenefitsCard({required this.benefits});
-
-  final List<String> benefits;
+  final List<String> extraBenefits;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.md,
-        AppSpacing.md,
-        AppSpacing.md,
-        AppSpacing.md,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFD7A11A), width: 1.2),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFDBB436), width: 1.2),
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0xFF3A2B18).withValues(alpha: 0.84),
-            const Color(0xFF0B0E14).withValues(alpha: 0.94),
+            const Color(0xA81A1C2A),
+            const Color(0xC90C0F19),
+            const Color(0xE306070B),
           ],
         ),
       ),
@@ -336,57 +355,175 @@ class _BenefitsCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Image.asset(
-                'assets/premium-icon-logo.png',
-                width: 24,
-                height: 24,
-                fit: BoxFit.contain,
-                color: const Color(0xFFF1C646),
+              Expanded(
+                child: _PlanSideCard(
+                  title: 'Sin premium',
+                  titleIcon: null,
+                  items: [
+                    _SideItem(
+                      text: 'Nivel cielo.',
+                      icon: Image.asset(
+                        'assets/cielo-icon-logo.png',
+                        width: 22,
+                        height: 22,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    _SideItem(
+                      text: 'Con anuncios.',
+                      icon: Image.asset(
+                        'assets/logo-icon-megaphone-anuncio.png',
+                        width: 20,
+                        height: 20,
+                        fit: BoxFit.contain,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                'Beneficios',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.98),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 34 * 0.56,
+              Expanded(
+                child: _PlanSideCard(
+                  title: 'Premium',
+                  titleIcon: Image.asset(
+                    'assets/logo-icon-premium-corona.png',
+                    width: 24,
+                    height: 24,
+                  ),
+                  items: const [
+                    _SideItem(text: 'Acceso a todos los niveles.'),
+                    _SideItem(text: 'Sin anuncios.'),
+                  ],
+                  highlighted: true,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          for (var index = 0; index < benefits.length; index++) ...[
-            _BenefitRow(text: benefits[index]),
-            if (index != benefits.length - 1)
-              const SizedBox(height: AppSpacing.sm),
-          ],
-          const SizedBox(height: AppSpacing.md),
-          Text.rich(
-            TextSpan(
-              text: 'La versión ',
+          const SizedBox(height: AppSpacing.sm),
+          for (var row = 0; row < 3; row++) ...[
+            Row(
               children: [
-                TextSpan(
-                  text: 'GRATUITA',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const TextSpan(text: ' es solo un aperitivo.\n'),
-                TextSpan(
-                  text: 'PREMIUM',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFFF2BF2A),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const TextSpan(text: ' es la experiencia completa.'),
+                Expanded(child: _BenefitRow(text: extraBenefits[row * 2])),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(child: _BenefitRow(text: extraBenefits[row * 2 + 1])),
               ],
             ),
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.82),
-              fontSize: 27 * 0.55,
-              height: 1.25,
+            if (row != 2) const SizedBox(height: AppSpacing.sm),
+          ],
+          const SizedBox(height: AppSpacing.sm),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanSideCard extends StatelessWidget {
+  const _PlanSideCard({
+    required this.title,
+    required this.items,
+    required this.titleIcon,
+    this.highlighted = false,
+  });
+
+  final String title;
+  final List<_SideItem> items;
+  final Widget? titleIcon;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        border: highlighted == false
+            ? Border.all(
+                color: const Color.fromARGB(255, 151, 151, 151),
+                width: 1.2,
+              )
+            : null,
+
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            highlighted ? const Color(0x8A6B4A1E) : const Color(0x8A272A36),
+            const Color(0xCC0A0D14),
+          ],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (titleIcon != null) ...[titleIcon!, const SizedBox(width: 6)],
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.96),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          for (var index = 0; index < items.length; index++) ...[
+            _MiniLabel(icon: items[index].icon, text: items[index].text),
+            if (index != items.length - 1)
+              const SizedBox(height: AppSpacing.xs),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SideItem {
+  const _SideItem({required this.text, this.icon});
+
+  final String text;
+  final Widget? icon;
+}
+
+class _MiniLabel extends StatelessWidget {
+  const _MiniLabel({required this.text, this.icon});
+
+  final String text;
+  final Widget? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xs,
+        vertical: AppSpacing.xxs,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+      ),
+      child: Row(
+        children: [
+          icon ??
+              Image.asset(
+                'assets/logo-icon-check-premium.png',
+                width: 18,
+                height: 18,
+                fit: BoxFit.contain,
+              ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.94),
+                fontWeight: FontWeight.w500,
+                height: 1.05,
+              ),
             ),
           ),
         ],
@@ -407,26 +544,16 @@ class _BenefitRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: const Color(0xFF0A0D13).withValues(alpha: 0.92),
+        color: const Color(0xFF0A0D13).withValues(alpha: 0.95),
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
         children: [
-          Container(
-            width: 28,
-            height: 28,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: const Color(0xFF11151E),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-            ),
-            child: Image.asset(
-              'assets/logo-icon-checked.png',
-              width: 18,
-              height: 18,
-              fit: BoxFit.contain,
-            ),
+          Image.asset(
+            'assets/logo-icon-check-premium.png',
+            width: 24,
+            height: 24,
+            fit: BoxFit.contain,
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -435,12 +562,141 @@ class _BenefitRow extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: Colors.white.withValues(alpha: 0.94),
                 fontWeight: FontWeight.w500,
-                fontSize: 30 * 0.54,
+                height: 1.05,
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({
+    required this.titleNumber,
+    required this.title,
+    required this.price,
+    required this.selected,
+    this.oldPrice,
+    this.discountLabel,
+  });
+
+  final String titleNumber;
+  final String title;
+  final String price;
+  final bool selected;
+  final String? oldPrice;
+  final String? discountLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          constraints: const BoxConstraints(minHeight: 144),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            16,
+            AppSpacing.md,
+            14,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFFE6C84A)
+                  : Colors.white.withValues(alpha: 0.58),
+              width: selected ? 2.8 : 1.2,
+            ),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [const Color(0xB7383D4A), const Color(0xCC10131E)],
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Align(
+                alignment: Alignment.topRight,
+                child: Icon(
+                  selected
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.circle_outlined,
+                  color: Colors.white.withValues(alpha: 0.96),
+                ),
+              ),
+              Text(
+                titleNumber,
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  height: 0.95,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    price,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: const Color(0xFFF1CF57),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (oldPrice != null) ...[
+                    const SizedBox(width: 5),
+                    Text(
+                      oldPrice!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFFB86767),
+                        decoration: TextDecoration.lineThrough,
+                        decorationColor: const Color(0xFFB86767),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (discountLabel != null)
+          Positioned(
+            top: -10,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8CF66),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  discountLabel!,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: const Color(0xFF5B4A00),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -460,30 +716,58 @@ class _PremiumCtaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 74,
-      child: App3dPillButton(
-        label: label,
-        color: const Color(0xFFFFE661),
-        gradientColors: const [Color(0xFFFFE95C), Color(0xFFF0A43B)],
-        height: 66,
-        depth: 4.2,
-        borderRadius: 18,
-        isLoading: loading,
-        leadingIconGap: 6,
-        leading: Image.asset(
-          'assets/premium-icon-logo.png',
-          width: 22,
-          height: 22,
-          fit: BoxFit.contain,
-          color: const Color(0xFFA66700),
-        ),
-        textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-          color: const Color(0xFFA66700),
-          fontWeight: FontWeight.w700,
-          fontSize: 33 * 0.56,
-        ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: !enabled || loading ? null : () => onTap(),
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          height: 72,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFBE35A), Color(0xFFF0A13F)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFF8D145).withValues(alpha: 0.25),
+                blurRadius: 20,
+                spreadRadius: 1,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Center(
+            child: loading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset(
+                        'assets/logo-icon-premium-corona.png',
+                        width: 24,
+                        height: 24,
+                        fit: BoxFit.contain,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        label,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: const Color(0xFF985A1A),
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
       ),
     );
   }

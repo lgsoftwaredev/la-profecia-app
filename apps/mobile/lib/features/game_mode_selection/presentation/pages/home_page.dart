@@ -14,20 +14,28 @@ import '../../../player_setup/presentation/pages/truth_or_dare_selection_page.da
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
 import '../../../premium/presentation/pages/premium_menu_page.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
+import '../../domain/entities/game_mode.dart';
 import '../widgets/home_mode_carousel.dart';
 
 class HomePage extends ConsumerStatefulWidget {
-  const HomePage({this.skipActiveMatchDialog = false, super.key});
+  const HomePage({
+    this.skipActiveMatchDialog = false,
+    this.showBottomMenu = true,
+    this.onGlobalMenuRequested,
+    super.key,
+  });
 
   final bool skipActiveMatchDialog;
+  final bool showBottomMenu;
+  final ValueChanged<GlobalBottomMenuItem>? onGlobalMenuRequested;
 
   @override
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  var _currentItem = GlobalBottomMenuItem.home;
   var _resumePromptShown = false;
+  var _selectedMode = GameMode.couples;
 
   @override
   void initState() {
@@ -132,6 +140,10 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _openPremium() {
+    if (widget.onGlobalMenuRequested != null) {
+      widget.onGlobalMenuRequested!(GlobalBottomMenuItem.ranking);
+      return;
+    }
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const PremiumMenuPage()));
@@ -142,6 +154,15 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _onItemSelected(GlobalBottomMenuItem item) {
+    if (widget.onGlobalMenuRequested != null) {
+      widget.onGlobalMenuRequested!(item);
+      return;
+    }
+
+    if (item == GlobalBottomMenuItem.home) {
+      return;
+    }
+
     if (item == GlobalBottomMenuItem.ranking) {
       _openPremium();
       return;
@@ -156,9 +177,14 @@ class _HomePageState extends ConsumerState<HomePage> {
       ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
       return;
     }
+  }
 
+  void _onModeChanged(GameMode mode) {
+    if (_selectedMode == mode) {
+      return;
+    }
     setState(() {
-      _currentItem = item;
+      _selectedMode = mode;
     });
   }
 
@@ -181,62 +207,95 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
           SafeArea(
             bottom: false,
-            child: Column(
-              children: [
-                const SizedBox(height: AppSpacing.md),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final carouselHeight = (constraints.maxHeight * 0.62).clamp(
+                  360.0,
+                  480.0,
+                );
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _HomeTopActionPill(
-                        label: 'Premium',
-                        textColor: const Color(0xFFF6A117),
-                        borderColor: const Color(0xCCBB7605),
-                        icon: Image.asset(
-                          'assets/premium-icon-logo.png',
-                          width: 18,
-                          height: 18,
-                          fit: BoxFit.contain,
-                          color: const Color(0xFFF6A117),
-                        ),
-                        onTap: _openPremium,
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+                  children: [
+                    const SizedBox(height: AppSpacing.md),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
                       ),
-                      _HomeTopActionPill(
-                        label: 'Tutorial',
-                        textColor: Colors.white.withValues(alpha: 0.92),
-                        borderColor: Colors.white.withValues(alpha: 0.52),
-                        icon: Image.asset(
-                          'assets/logo-icon-question.png',
-                          width: 16,
-                          height: 16,
-                          fit: BoxFit.contain,
-                        ),
-                        usePremiumSurface: true,
-                        onTap: _openTutorial,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _HomeTopActionPill(
+                            label: 'Premium',
+                            textColor: const Color(0xFFF6A117),
+                            borderColor: const Color(0xCCBB7605),
+                            icon: Image.asset(
+                              'assets/premium-icon-logo.png',
+                              width: 18,
+                              height: 18,
+                              fit: BoxFit.contain,
+                              color: const Color(0xFFF6A117),
+                            ),
+                            onTap: _openPremium,
+                          ),
+                          _HomeTopActionPill(
+                            label: 'Tutorial',
+                            textColor: Colors.white.withValues(alpha: 0.92),
+                            borderColor: Colors.white.withValues(alpha: 0.52),
+                            icon: Image.asset(
+                              'assets/logo-icon-question.png',
+                              width: 16,
+                              height: 16,
+                              fit: BoxFit.contain,
+                            ),
+                            usePremiumSurface: true,
+                            onTap: _openTutorial,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Image.asset(
-                  'assets/logo-+18.png',
-                  width: 168,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(height: AppSpacing.xxl * 1.5),
-                const Expanded(child: HomeModeCarousel()),
-              ],
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Image.asset(
+                      _selectedMode.isCouples
+                          ? 'assets/logo-simple-signature.png'
+                          : 'assets/logo-simple-blue.png',
+                      height: _selectedMode.isCouples ? 88 : 88,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xl,
+                      ),
+                      child: _HomeModeHeroCopy(mode: _selectedMode),
+                    ),
+                    const SizedBox(height: AppSpacing.xxl),
+                    SizedBox(
+                      height: carouselHeight,
+                      child: HomeModeCarousel(onModeChanged: _onModeChanged),
+                    ),
+                    const SizedBox(height: AppSpacing.xxl * 1.5),
+
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                      child: _HomeModeInfoBanner(),
+                    ),
+                    const SizedBox(height: AppSpacing.xxl * 4.5),
+                  ],
+                );
+              },
             ),
           ),
         ],
       ),
-      bottomNavigationBar: GlobalBottomMenu(
-        currentItem: _currentItem,
-        onItemSelected: _onItemSelected,
-      ),
+      bottomNavigationBar: widget.showBottomMenu
+          ? GlobalBottomMenu(
+              currentItem: GlobalBottomMenuItem.home,
+              onItemSelected: _onItemSelected,
+            )
+          : null,
     );
   }
 }
@@ -318,6 +377,102 @@ class _HomeTopActionPill extends StatelessWidget {
                 child: SizedBox(height: 46, child: Center(child: buttonChild)),
               ),
       ),
+    );
+  }
+}
+
+class _HomeModeInfoBanner extends StatelessWidget {
+  const _HomeModeInfoBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return PremiumGlassSurface(
+      height: 102,
+      borderRadius: BorderRadius.circular(24),
+      gradientColors: const [Color(0x73302043), Color(0x7A1A0E2A)],
+      borderColor: Colors.white.withValues(alpha: 0.38),
+      innerBorderColor: Colors.white.withValues(alpha: 0.12),
+      topHighlightOpacity: 0.12,
+      bottomShadeOpacity: 0.24,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            alignment: Alignment.center,
+            child: Image.asset(
+              'assets/logo-icon-foco-premium.png',
+              width: 60,
+              height: 60,
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              'La dinámica cambia según el modo de juego que selecciones.',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontSize: 17,
+                color: Colors.white.withValues(alpha: 0.96),
+                height: 1.35,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeModeHeroCopy extends StatelessWidget {
+  const _HomeModeHeroCopy({required this.mode});
+
+  final GameMode mode;
+
+  @override
+  Widget build(BuildContext context) {
+    final accentColor = mode.isCouples
+        ? AppColors.primary
+        : AppColors.secondary;
+    final subtitle = mode.isCouples
+        ? 'No es lo mismo jugar en pareja... que\ncon todo el grupo mirando.'
+        : 'No es lo mismo jugar con amigos... que\ncon tu pareja mirando.';
+    return Column(
+      children: [
+        Text.rich(
+          TextSpan(
+            text: 'Elige cómo ',
+            children: [
+              TextSpan(
+                text: 'quieres jugar',
+                style: TextStyle(color: accentColor),
+              ),
+            ],
+          ),
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            height: 1.12,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          subtitle,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: Colors.white.withValues(alpha: 0.92),
+            height: 1.35,
+          ),
+        ),
+      ],
     );
   }
 }

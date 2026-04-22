@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_liquid_glass_plus/flutter_liquid_glass.dart';
 
-import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
 enum GlobalBottomMenuItem { home, ranking, profile, settings }
@@ -38,6 +38,18 @@ class GlobalBottomMenu extends StatelessWidget {
     ),
   ];
 
+  int _indexForItem(GlobalBottomMenuItem item) {
+    final index = _items.indexWhere((menuItem) => menuItem.item == item);
+    return index < 0 ? 0 : index;
+  }
+
+  GlobalBottomMenuItem _itemForIndex(int index) {
+    if (index < 0 || index >= _items.length) {
+      return GlobalBottomMenuItem.home;
+    }
+    return _items[index].item;
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -49,43 +61,54 @@ class GlobalBottomMenu extends StatelessWidget {
           AppSpacing.lg,
           AppSpacing.lg,
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: Container(
-            height: 80,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xCC2B3568), Color(0xB2212854)],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.30),
-                  blurRadius: 34,
-                  offset: const Offset(0, 14),
+        child: LGBottomBar(
+          tabs: [
+            for (final menuItem in _items)
+              LGBottomBarTab(
+                label: menuItem.label,
+                iconWidget: _MenuIcon(
+                  assetPath: menuItem.iconAsset,
+                  size: 25,
+                  opacity: 0.92,
                 ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              child: Row(
-                children: [
-                  for (final menuItem in _items)
-                    Expanded(
-                      flex: currentItem == menuItem.item ? 2 : 1,
-                      child: _BottomMenuButton(
-                        iconAsset: menuItem.iconAsset,
-                        label: menuItem.label,
-                        isSelected: currentItem == menuItem.item,
-                        onTap: () => onItemSelected?.call(menuItem.item),
-                      ),
-                    ),
-                ],
+                selectedIconWidget: _SelectedMenuIcon(
+                  assetPath: menuItem.iconAsset,
+                ),
+                selectedLabelColor: Colors.white,
+                unselectedLabelColor: Colors.transparent,
               ),
-            ),
+          ],
+          selectedIndex: _indexForItem(currentItem),
+          onTabSelected: (index) => onItemSelected?.call(_itemForIndex(index)),
+          showLabel: true,
+          quality: LGQuality.standard,
+          barHeight: 70,
+          barBorderRadius: 999,
+          horizontalPadding: 0,
+          verticalPadding: 0,
+          tabPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
+          spacing: 10,
+          blendAmount: 1,
+          indicatorColor: Colors.white.withValues(alpha: 0.22),
+          indicatorSettings: const LiquidGlassSettings(
+            blur: 2,
+            thickness: 16,
+            glassColor: Color(0x29FFFFFF),
+            refractiveIndex: 1.15,
+          ),
+          glassSettings: const LiquidGlassSettings(
+            thickness: 10,
+            blur: 2,
+            chromaticAberration: 0.3,
+            lightIntensity: 0.8,
+            refractiveIndex: 1.25,
+            saturation: 1.05,
+            glassColor: Color.fromARGB(29, 255, 255, 255),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            height: 1,
           ),
         ),
       ),
@@ -103,71 +126,6 @@ class _BottomMenuItemData {
   final GlobalBottomMenuItem item;
   final String label;
   final String iconAsset;
-}
-
-class _BottomMenuButton extends StatelessWidget {
-  const _BottomMenuButton({
-    required this.iconAsset,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String iconAsset;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          height: double.infinity,
-          padding: EdgeInsets.symmetric(
-            horizontal: isSelected ? AppSpacing.md : AppSpacing.xs,
-            vertical: AppSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Colors.white.withValues(alpha: 0.18)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Center(
-            child: isSelected
-                ? Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _MenuIcon(assetPath: iconAsset, size: 32),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(
-                                fontSize: 18,
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w500,
-                                height: 1.1,
-                              ),
-                        ),
-                      ),
-                    ],
-                  )
-                : _MenuIcon(assetPath: iconAsset, size: 28, opacity: 0.92),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _MenuIcon extends StatelessWidget {
@@ -195,5 +153,16 @@ class _MenuIcon extends StatelessWidget {
         filterQuality: FilterQuality.high,
       ),
     );
+  }
+}
+
+class _SelectedMenuIcon extends StatelessWidget {
+  const _SelectedMenuIcon({required this.assetPath});
+
+  final String assetPath;
+
+  @override
+  Widget build(BuildContext context) {
+    return _MenuIcon(assetPath: assetPath, size: 32);
   }
 }

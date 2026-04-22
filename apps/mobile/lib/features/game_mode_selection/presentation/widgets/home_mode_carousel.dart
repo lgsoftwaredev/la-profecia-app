@@ -9,7 +9,9 @@ import '../../domain/entities/game_mode.dart';
 import '../../../player_setup/presentation/pages/player_setup_page.dart';
 
 class HomeModeCarousel extends ConsumerStatefulWidget {
-  const HomeModeCarousel({super.key});
+  const HomeModeCarousel({this.onModeChanged, super.key});
+
+  final ValueChanged<GameMode>? onModeChanged;
 
   @override
   ConsumerState<HomeModeCarousel> createState() => _HomeModeCarouselState();
@@ -19,6 +21,7 @@ class _HomeModeCarouselState extends ConsumerState<HomeModeCarousel> {
   late final PageController _pageController = PageController(
     viewportFraction: 0.72,
   );
+  var _lastReportedIndex = 0;
 
   static const _cards = [
     _HomeModeCardData(
@@ -40,6 +43,17 @@ class _HomeModeCarouselState extends ConsumerState<HomeModeCarousel> {
       accentColor: AppColors.secondary,
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      widget.onModeChanged?.call(_cards[_lastReportedIndex].mode);
+    });
+  }
 
   @override
   void dispose() {
@@ -68,6 +82,10 @@ class _HomeModeCarouselState extends ConsumerState<HomeModeCarousel> {
               controller: _pageController,
               itemCount: _cards.length,
               clipBehavior: Clip.none,
+              onPageChanged: (index) {
+                _lastReportedIndex = index;
+                widget.onModeChanged?.call(_cards[index].mode);
+              },
               itemBuilder: (context, index) {
                 final distance = (currentPage - index).abs();
                 final focus = (1 - distance).clamp(0.0, 1.0);

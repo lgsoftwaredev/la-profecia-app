@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:la_profecia_app/features/tutorial/data/tutorial_preferences.dart';
 
 import '../../../../app/di/app_scope.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
 import '../../../game_mode_selection/presentation/pages/home_page.dart';
+import '../../../premium/presentation/pages/premium_menu_page.dart';
 import '../widgets/tutorial_first_view.dart';
 import '../widgets/tutorial_fourth_view.dart';
 import '../widgets/tutorial_page_indicator.dart';
@@ -40,8 +42,16 @@ class _TutorialPageState extends State<TutorialPage> {
       if (!mounted) {
         return;
       }
+      await TutorialPreferences.markTutorialSeen();
+      if (!mounted) {
+        return;
+      }
+      final hasPremiumAccess = AppScope.I.entitlementService.hasPremiumAccess();
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => const HomePage()),
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              hasPremiumAccess ? const HomePage() : const PremiumMenuPage(),
+        ),
       );
       return;
     }

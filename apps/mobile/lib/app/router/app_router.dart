@@ -8,13 +8,21 @@ import '../../features/profile/presentation/pages/profile_page.dart';
 class AppRouter {
   const AppRouter._();
 
-  static Future<void> openProfileGuarded(BuildContext context) async {
-    await openGuarded(context, builder: (_) => const ProfilePage());
+  static Future<void> openProfileGuarded(
+    BuildContext context, {
+    bool replace = false,
+  }) async {
+    await openGuarded(
+      context,
+      builder: (_) => const ProfilePage(),
+      replace: replace,
+    );
   }
 
   static Future<void> openGuarded(
     BuildContext context, {
     required WidgetBuilder builder,
+    bool replace = false,
   }) async {
     final container = ProviderScope.containerOf(context, listen: false);
     if (!container.read(isAuthenticatedProvider)) {
@@ -33,6 +41,11 @@ class AppRouter {
       return;
     }
 
-    await Navigator.of(context).push(MaterialPageRoute<void>(builder: builder));
+    final route = MaterialPageRoute<void>(builder: builder);
+    if (replace) {
+      await Navigator.of(context).pushReplacement(route);
+      return;
+    }
+    await Navigator.of(context).push(route);
   }
 }

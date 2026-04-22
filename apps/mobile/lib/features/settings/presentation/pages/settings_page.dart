@@ -1,16 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/router/app_router.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/global_bottom_menu.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../game_mode_selection/presentation/pages/home_page.dart';
 import '../../../premium/presentation/pages/premium_menu_page.dart';
 import '../../../suggestions/domain/entities/suggestion.dart';
 import '../../../suggestions/presentation/pages/suggestion_compose_final_group_page.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
 import '../../../tutorial/presentation/pages/tutorial_page.dart';
+import 'liquid_glass_demo_page.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({
+    this.showBottomMenu = true,
+    this.onGlobalMenuRequested,
+    super.key,
+  });
+
+  final bool showBottomMenu;
+  final ValueChanged<GlobalBottomMenuItem>? onGlobalMenuRequested;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -18,6 +29,49 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   var _soundEnabled = true;
+
+  Future<void> _onBottomMenuItemSelected(GlobalBottomMenuItem item) async {
+    if (widget.onGlobalMenuRequested != null) {
+      widget.onGlobalMenuRequested!(item);
+      return;
+    }
+
+    if (item == GlobalBottomMenuItem.settings) {
+      return;
+    }
+
+    if (item == GlobalBottomMenuItem.home) {
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.popUntil((route) => route.isFirst);
+        return;
+      }
+      navigator.pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => const HomePage()),
+      );
+      return;
+    }
+
+    if (item == GlobalBottomMenuItem.ranking) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => const PremiumMenuPage()),
+      );
+      return;
+    }
+
+    await AppRouter.openProfileGuarded(context, replace: true);
+  }
+
+  void _openPremium() {
+    if (widget.onGlobalMenuRequested != null) {
+      widget.onGlobalMenuRequested!(GlobalBottomMenuItem.ranking);
+      return;
+    }
+
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const PremiumMenuPage()));
+  }
 
   Future<SuggestionType?> _pickSuggestionType() {
     return showModalBottomSheet<SuggestionType>(
@@ -168,6 +222,12 @@ class _SettingsPageState extends State<SettingsPage> {
                       const Spacer(),
                       _HeaderSideButton(
                         onTap: () {
+                          if (widget.onGlobalMenuRequested != null) {
+                            widget.onGlobalMenuRequested!(
+                              GlobalBottomMenuItem.home,
+                            );
+                            return;
+                          }
                           if (Navigator.of(context).canPop()) {
                             Navigator.of(context).pop();
                           }
@@ -208,6 +268,18 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           const SizedBox(height: AppSpacing.xl),
                           _SettingsItemRow(
+                            iconAsset: 'assets/logo-icon-foco-premium.png',
+                            title: 'Demo Liquid Glass+',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const LiquidGlassDemoPage(),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: AppSpacing.xl),
+                          _SettingsItemRow(
                             iconAsset:
                                 'assets/logo-icon-proponer-questions.png',
                             title: 'Proponer retos y preguntas',
@@ -220,13 +292,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                 'assets/logo-icon-premium-corona-outlined.png',
                             title: 'Desbloquear',
                             trailing: _PremiumBadge(),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const PremiumMenuPage(),
-                                ),
-                              );
-                            },
+                            onTap: _openPremium,
                           ),
                           const SizedBox(height: AppSpacing.xl),
                           const _SettingsItemRow(
@@ -259,6 +325,12 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ),
+      bottomNavigationBar: widget.showBottomMenu
+          ? GlobalBottomMenu(
+              currentItem: GlobalBottomMenuItem.settings,
+              onItemSelected: _onBottomMenuItemSelected,
+            )
+          : null,
     );
   }
 }
