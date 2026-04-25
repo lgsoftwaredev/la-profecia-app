@@ -43,5 +43,23 @@ class SupabaseAuthRepository implements AuthRepository {
   Future<AuthSession> signInWithApple() => _dataSource.signInWithApple();
 
   @override
+  Future<void> sendPasswordResetCode({required String email}) {
+    return _dataSource.sendPasswordResetCode(email: email);
+  }
+
+  @override
+  Future<void> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) {
+    return _dataSource.resetPasswordWithCode(
+      email: email,
+      code: code,
+      newPassword: newPassword,
+    );
+  }
+
+  @override
   Future<void> signOut() => _dataSource.signOut();
 }

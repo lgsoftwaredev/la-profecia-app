@@ -15,7 +15,7 @@ extension MatchLevelX on MatchLevel {
   int get requiredCompletedRounds => switch (this) {
     MatchLevel.cielo => 0,
     MatchLevel.tierra => 0,
-    MatchLevel.infierno => GameRules.unlockInfiernoAfterCompletedRounds,
+    MatchLevel.infierno => 0,
     MatchLevel.inframundo => GameRules.unlockInframundoAfterCompletedRounds,
   };
 }

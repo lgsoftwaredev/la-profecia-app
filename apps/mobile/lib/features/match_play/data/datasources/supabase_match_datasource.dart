@@ -51,16 +51,29 @@ class SupabaseMatchDataSource {
     }
 
     final playerRowsPayload = session.participants
-        .map(
-          (participant) => <String, dynamic>{
+        .map((participant) {
+          final preferredSeatOrder = participant.preferredPlayerId;
+          String? preferredName;
+          for (final item in session.participants) {
+            if (item.id == preferredSeatOrder) {
+              final normalized = item.name.trim();
+              if (normalized.isNotEmpty) {
+                preferredName = normalized;
+              }
+              break;
+            }
+          }
+          return <String, dynamic>{
             'sessionId': remoteSessionId,
             'displayName': participant.name,
+            'preferenceName': preferredName,
+            'preferenceSeatOrder': preferredSeatOrder,
             'seatOrder': participant.id,
             'pairIndex': participant.pairIndex,
             'profileId': participant.authUserId,
             'isEliminated': participant.isEliminated,
-          },
-        )
+          };
+        })
         .toList(growable: false);
 
     final playerRows = await client

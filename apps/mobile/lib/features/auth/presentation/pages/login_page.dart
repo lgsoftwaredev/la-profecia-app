@@ -6,6 +6,7 @@ import '../../../../app/providers/app_providers.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../providers/auth_providers.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
+import 'forgot_password_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -53,6 +54,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ],
         );
       },
+    );
+  }
+
+  Future<void> _openForgotPassword() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            ForgotPasswordPage(initialEmail: _emailController.text.trim()),
+      ),
     );
   }
 
@@ -141,6 +151,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.iOS ||
             defaultTargetPlatform == TargetPlatform.macOS);
+    final canGoBack = Navigator.of(context).canPop();
 
     return Scaffold(
       extendBody: true,
@@ -148,27 +159,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         fit: StackFit.expand,
         children: [
           Image.asset('assets/background-home.png', fit: BoxFit.cover),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0x59060315),
-                  const Color(0xFF06020F).withValues(alpha: 0.98),
-                ],
-              ),
-            ),
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment(-0.86, -1.0),
-                radius: 0.92,
-                colors: [Color(0x59315C96), Colors.transparent],
-              ),
-            ),
-          ),
           SafeArea(
             bottom: false,
             child: Padding(
@@ -176,24 +166,42 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               child: Column(
                 children: [
                   const SizedBox(height: AppSpacing.sm),
-                  Row(
+                  Stack(
+                    alignment: Alignment.topCenter,
                     children: [
-                      Text(
-                        'Iniciar',
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.96),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 50 * 0.66,
-                            ),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 132,
+                        child: canGoBack
+                            ? Align(
+                                alignment: Alignment.topLeft,
+                                child: _HeaderSideButton(
+                                  onTap: () => Navigator.of(context).pop(),
+                                ),
+                              )
+                            : null,
                       ),
-                      const Spacer(),
-                      _HeaderSideButton(
-                        onTap: () {
-                          if (Navigator.of(context).canPop()) {
-                            Navigator.of(context).pop();
-                          }
-                        },
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(height: AppSpacing.xxl * 1.8),
+                          Image.asset(
+                            'assets/logo-icon-signin-user.png',
+                            width: 112,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            'Iniciar Sesión',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.96),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 50 * 0.66,
+                                ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -231,17 +239,35 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             },
                           ),
                           const SizedBox(height: AppSpacing.sm),
-                          // Align(
-                          //   child: Text(
-                          //     '¿Olvidaste la contraseña?',
-                          //     style: Theme.of(context).textTheme.titleMedium
-                          //         ?.copyWith(
-                          //           color: const Color(0xFF36A5FF),
-                          //           fontWeight: FontWeight.w600,
-                          //           fontSize: 27 * 0.50,
-                          //         ),
-                          //   ),
-                          // ),
+                          Align(
+                            child: GestureDetector(
+                              onTap: _openForgotPassword,
+                              child: Text.rich(
+                                TextSpan(
+                                  text: '¿Olvidaste la ',
+                                  children: [
+                                    TextSpan(
+                                      text: 'contraseña?',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            color: const Color(0xFF36A5FF),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.86,
+                                      ),
+                                      fontSize: 27 * 0.50,
+                                    ),
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: AppSpacing.lg),
                           _PrimaryAuthButton(
                             text: isSubmitting
@@ -576,16 +602,16 @@ class _HeaderSideButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 48,
-      height: 86,
+      width: 44,
+      height: 44,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(26),
+          borderRadius: BorderRadius.circular(999),
           onTap: onTap,
           child: Ink(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
+              borderRadius: BorderRadius.circular(999),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -599,7 +625,7 @@ class _HeaderSideButton extends StatelessWidget {
             child: Center(
               child: Icon(
                 Icons.chevron_left_rounded,
-                size: 34,
+                size: 24,
                 color: Colors.white.withValues(alpha: 0.84),
               ),
             ),

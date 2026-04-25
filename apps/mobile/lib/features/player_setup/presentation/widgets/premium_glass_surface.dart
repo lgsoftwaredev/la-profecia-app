@@ -16,6 +16,8 @@ class PremiumGlassSurface extends StatelessWidget {
     this.topHighlightOpacity = 0.14,
     this.bottomShadeOpacity = 0.20,
     this.innerBorderColor,
+    this.gradientBegin = Alignment.topLeft,
+    this.gradientEnd = Alignment.bottomRight,
     super.key,
   });
 
@@ -30,6 +32,8 @@ class PremiumGlassSurface extends StatelessWidget {
   final double topHighlightOpacity;
   final double bottomShadeOpacity;
   final Color? innerBorderColor;
+  final AlignmentGeometry gradientBegin;
+  final AlignmentGeometry gradientEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -39,8 +43,8 @@ class PremiumGlassSurface extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: borderRadius,
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: gradientBegin,
+          end: gradientEnd,
           colors: gradientColors,
         ),
         boxShadow: outerShadows,
@@ -134,8 +138,8 @@ class _PremiumBorderPainter extends CustomPainter {
 
     final baseStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.95
-      ..color = borderColor.withValues(alpha: 0.08);
+      ..strokeWidth = 0.05
+      ..color = borderColor.withValues(alpha: 0.00);
 
     final topLeftArcRect = Rect.fromCenter(
       center: Offset(rrect.left + rrect.tlRadiusX, rrect.top + rrect.tlRadiusY),
@@ -153,7 +157,7 @@ class _PremiumBorderPainter extends CustomPainter {
 
     final cornerCoreStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.06
+      ..strokeWidth = .26
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..color = borderColor.withValues(alpha: 0.72);

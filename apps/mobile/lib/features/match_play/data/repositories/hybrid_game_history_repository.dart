@@ -24,6 +24,7 @@ class HybridGameHistoryRepository implements GameHistoryRepository {
     required String resultLabel,
     required int scoreDelta,
     required bool won,
+    String? headline,
   }) async {
     if (_shouldUseRemote) {
       try {
@@ -33,6 +34,7 @@ class HybridGameHistoryRepository implements GameHistoryRepository {
           resultLabel: resultLabel,
           scoreDelta: scoreDelta,
           won: won,
+          headline: headline,
         );
         return;
       } catch (_) {}
@@ -44,6 +46,7 @@ class HybridGameHistoryRepository implements GameHistoryRepository {
       resultLabel: resultLabel,
       scoreDelta: scoreDelta,
       won: won,
+      headline: headline,
     );
   }
 

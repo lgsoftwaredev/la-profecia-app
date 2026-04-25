@@ -71,6 +71,10 @@ class MatchController extends ChangeNotifier {
           (participant) => PlayerConfig(
             id: participant.id,
             name: participant.name,
+            avatarAssetPath: _avatarAssetForPlayer(
+              mode: current.mode,
+              playerId: participant.id,
+            ),
             pairIndex: participant.pairIndex,
             authUserId: participant.authUserId,
             isAuthenticatedUser: participant.isAuthenticatedUser,
@@ -84,8 +88,9 @@ class MatchController extends ChangeNotifier {
       pairs: current.mode.isCouples
           ? _groupByPairs(players)
           : const <List<PlayerConfig>>[],
-      selectedTheme:
-          (current.pendingTurn?.level ?? MatchLevel.cielo).toGameStyleTheme,
+      enabledThemes: current.allowedLevels
+          .map((level) => level.toGameStyleTheme)
+          .toList(growable: false),
     );
   }
 
@@ -95,12 +100,14 @@ class MatchController extends ChangeNotifier {
       return _engine.availableLevels(
         completedRounds: 0,
         hasPremium: _entitlementService.hasPremiumAccess(),
+        allowedLevels: MatchLevel.values,
       );
     }
 
     return _engine.availableLevels(
       completedRounds: current.completedRounds,
       hasPremium: _entitlementService.hasPremiumAccess(),
+      allowedLevels: current.allowedLevels,
     );
   }
 
@@ -127,7 +134,7 @@ class MatchController extends ChangeNotifier {
       await _analyticsService.logGameStarted(
         mode: setup.mode.name,
         playersCount: setup.players.length,
-        startingLevel: setup.selectedTheme.toMatchLevel.name,
+        startingLevel: setup.preferredTheme.toMatchLevel.name,
       );
     } catch (_) {
       _error = 'No se pudo crear la partida.';
@@ -174,12 +181,16 @@ class MatchController extends ChangeNotifier {
               level: selectedLevel,
               kind: kind,
             );
+      final renderedPrompt = _renderPromptTemplate(
+        prompt: prompt,
+        session: baseSession,
+      );
 
       _session = _engine.createTurn(
         session: baseSession,
         promptKind: kind,
         level: selectedLevel,
-        prompt: prompt,
+        prompt: renderedPrompt,
       );
 
       _session = await _activeMatchRepository.save(_session!);
@@ -190,6 +201,33 @@ class MatchController extends ChangeNotifier {
       _error = 'No se pudo preparar el turno.';
       _setLoading(false);
       return null;
+    }
+  }
+
+  Future<bool> updateAllowedLevels(List<MatchLevel> levels) async {
+    final current = _session;
+    if (current == null || current.isFinished || current.pendingTurn != null) {
+      return false;
+    }
+
+    final requested = levels.toSet();
+    final normalized = MatchLevel.values
+        .where(requested.contains)
+        .toList(growable: false);
+    if (normalized.isEmpty) {
+      return false;
+    }
+
+    try {
+      _session = current.copyWith(allowedLevels: normalized);
+      _session = await _activeMatchRepository.save(_session!);
+      _error = null;
+      notifyListeners();
+      return true;
+    } catch (_) {
+      _error = 'No se pudieron actualizar los niveles habilitados.';
+      notifyListeners();
+      return false;
     }
   }
 
@@ -296,6 +334,11 @@ class MatchController extends ChangeNotifier {
             result.winnerPairIndex == authenticatedParticipant.pairIndex,
     };
     final scoreDelta = won ? participantScore : -participantScore;
+    final normalizedName = authenticatedParticipant.name.trim();
+    final actorName = normalizedName.isEmpty ? 'Jugador' : normalizedName;
+    final headline = won
+        ? '$actorName gano la partida'
+        : '$actorName perdio la partida';
 
     await _historyRepository.registerFinishedMatch(
       sessionId: finished.remoteSessionId ?? finished.id,
@@ -303,10 +346,49 @@ class MatchController extends ChangeNotifier {
       resultLabel: won ? 'Ganada' : 'Perdida',
       scoreDelta: scoreDelta,
       won: won,
+      headline: headline,
     );
   }
 
   Future<UserStatsSummary> readSummary() => _historyRepository.readSummary();
+
+  String _avatarAssetForPlayer({
+    required GameMode mode,
+    required int playerId,
+  }) {
+    final friends = <String>[
+      'assets/logo-icons-player-setup/friends/Icono 1.png',
+      'assets/logo-icons-player-setup/friends/Icono 2.png',
+      'assets/logo-icons-player-setup/friends/Icono 3.png',
+      'assets/logo-icons-player-setup/friends/Icono 4.png',
+      'assets/logo-icons-player-setup/friends/Icono 5.png',
+      'assets/logo-icons-player-setup/friends/Icono 6.png',
+      'assets/logo-icons-player-setup/friends/Icono 8.png',
+      'assets/logo-icons-player-setup/friends/Icono 9.png',
+      'assets/logo-icons-player-setup/friends/Icono 11.png',
+      'assets/logo-icons-player-setup/friends/Icono 16.png',
+      'assets/logo-icons-player-setup/friends/Icono 17.png',
+      'assets/logo-icons-player-setup/friends/Icono 18.png',
+      'assets/logo-icons-player-setup/friends/Icono 19.png',
+      'assets/logo-icons-player-setup/friends/Icono 23.png',
+      'assets/logo-icons-player-setup/friends/Icono 26.png',
+    ];
+    final couples = <String>[
+      'assets/logo-icons-player-setup/couple/Icono 7.png',
+      'assets/logo-icons-player-setup/couple/Icono 10.png',
+      'assets/logo-icons-player-setup/couple/Icono 12.png',
+      'assets/logo-icons-player-setup/couple/Icono 13.png',
+      'assets/logo-icons-player-setup/couple/Icono 14.png',
+      'assets/logo-icons-player-setup/couple/Icono 15.png',
+      'assets/logo-icons-player-setup/couple/Icono 20.png',
+      'assets/logo-icons-player-setup/couple/Icono 21.png',
+      'assets/logo-icons-player-setup/couple/Icono 22.png',
+      'assets/logo-icons-player-setup/couple/Icono 24.png',
+      'assets/logo-icons-player-setup/couple/Icono 25.png',
+    ];
+    final pool = mode.isFriends ? friends : couples;
+    return pool[(playerId - 1) % pool.length];
+  }
 
   Future<bool> saveFinalGroupPenalty(String text) async {
     final normalizedText = text.trim();
@@ -334,6 +416,191 @@ class MatchController extends ChangeNotifier {
   void _setLoading(bool value) {
     _loading = value;
     notifyListeners();
+  }
+
+  GamePrompt _renderPromptTemplate({
+    required GamePrompt prompt,
+    required MatchSession session,
+  }) {
+    final participant = session.participants.firstWhere(
+      (item) => item.id == session.currentParticipantId,
+      orElse: () => session.participants.first,
+    );
+    final currentName = _safeName(participant.name, fallbackId: participant.id);
+    final anyName =
+        _resolveAnyPlayerName(
+          session: session,
+          currentParticipantId: participant.id,
+        ) ??
+        currentName;
+    final preferredName = _resolvePreferredName(
+      session: session,
+      participantId: participant.id,
+    );
+    final partnerName = _resolvePartnerName(
+      session: session,
+      participantId: participant.id,
+    );
+    final timerFromText = _extractTimerSeconds(prompt.text);
+    final hasEffectFromText = _hasMatchEffectMarker(prompt.text);
+    final timerSeconds = prompt.timerSeconds ?? timerFromText;
+    final hasMatchEffect = prompt.hasMatchEffect || hasEffectFromText;
+
+    var text = prompt.text;
+    text = _replaceToken(text, '[Nombre del jugador actual]', currentName);
+    text = _replaceToken(text, '[nombre del jugador actual]', currentName);
+    text = _replaceToken(text, '[nombre de la pareja]', partnerName ?? anyName);
+    text = _replaceToken(
+      text,
+      '[nombre de preferencia del jugador]',
+      preferredName ?? anyName,
+    );
+    text = _replaceToken(
+      text,
+      '[nombre de preferencia del jugador o cualquiera]',
+      preferredName ?? anyName,
+    );
+    text = _replaceToken(text, '[nombre cualquiera]', anyName);
+
+    text = _stripTemplateMarkers(text);
+    text = text.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
+
+    return GamePrompt(
+      id: prompt.id,
+      text: text,
+      level: prompt.level,
+      kind: prompt.kind,
+      remoteContentId: prompt.remoteContentId,
+      templateTokens: prompt.templateTokens,
+      timerSeconds: timerSeconds,
+      hasMatchEffect: hasMatchEffect,
+    );
+  }
+
+  String _replaceToken(String source, String token, String replacement) {
+    final escaped = RegExp.escape(token);
+    return source.replaceAll(
+      RegExp(escaped, caseSensitive: false),
+      replacement,
+    );
+  }
+
+  String _stripTemplateMarkers(String text) {
+    var normalized = text;
+    normalized = normalized.replaceAll(
+      RegExp(
+        r'\(\s*(?:Cron[oó]metro|contador)\s+de\s+\d+\s*(?:segundos?|min(?:uto)?s?)\s*\)',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    normalized = normalized.replaceAll(
+      RegExp(
+        r'\[\s*contador\s+\d+\s*(?:segundos?|min(?:uto)?s?|min)\s*\]',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    normalized = normalized.replaceAll(
+      RegExp(r'\(\s*EFECTO(?:\s+ACTIVO)?\s*\)', caseSensitive: false),
+      '',
+    );
+    normalized = normalized.replaceAll(
+      RegExp(r'\(\s*PREFERENCIA\s*\)', caseSensitive: false),
+      '',
+    );
+    return normalized;
+  }
+
+  int? _extractTimerSeconds(String text) {
+    final markerMatch = RegExp(
+      r'(?:\(|\[)\s*(?:Cron[oó]metro|contador)\s+(?:de\s+)?(\d+)\s*(segundos?|min(?:uto)?s?|min)\s*(?:\)|\])',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (markerMatch == null) {
+      return null;
+    }
+
+    final rawValue = int.tryParse(markerMatch.group(1) ?? '');
+    final rawUnit = markerMatch.group(2)?.toLowerCase();
+    if (rawValue == null || rawUnit == null) {
+      return null;
+    }
+
+    if (rawUnit.startsWith('seg')) {
+      return rawValue;
+    }
+    return rawValue * 60;
+  }
+
+  bool _hasMatchEffectMarker(String text) {
+    return RegExp(
+      r'\(\s*EFECTO(?:\s+ACTIVO)?\s*\)',
+      caseSensitive: false,
+    ).hasMatch(text);
+  }
+
+  String _safeName(String name, {required int fallbackId}) {
+    final normalized = name.trim();
+    if (normalized.isNotEmpty) {
+      return normalized;
+    }
+    return 'Jugador $fallbackId';
+  }
+
+  String? _resolveAnyPlayerName({
+    required MatchSession session,
+    required int currentParticipantId,
+  }) {
+    for (final item in session.participants) {
+      if (item.id != currentParticipantId) {
+        return _safeName(item.name, fallbackId: item.id);
+      }
+    }
+    return null;
+  }
+
+  String? _resolvePreferredName({
+    required MatchSession session,
+    required int participantId,
+  }) {
+    final participant = session.participants.firstWhere(
+      (item) => item.id == participantId,
+      orElse: () => session.participants.first,
+    );
+    final preferredId = participant.preferredPlayerId;
+    if (preferredId == null || preferredId == participant.id) {
+      return null;
+    }
+    for (final item in session.participants) {
+      if (item.id == preferredId) {
+        return _safeName(item.name, fallbackId: item.id);
+      }
+    }
+    return null;
+  }
+
+  String? _resolvePartnerName({
+    required MatchSession session,
+    required int participantId,
+  }) {
+    if (!session.mode.isCouples) {
+      return null;
+    }
+    final participant = session.participants.firstWhere(
+      (item) => item.id == participantId,
+      orElse: () => session.participants.first,
+    );
+    final pairIndex = participant.pairIndex;
+    if (pairIndex == null) {
+      return null;
+    }
+    for (final item in session.participants) {
+      if (item.id != participant.id && item.pairIndex == pairIndex) {
+        return _safeName(item.name, fallbackId: item.id);
+      }
+    }
+    return null;
   }
 
   List<List<PlayerConfig>> _groupByPairs(List<PlayerConfig> players) {

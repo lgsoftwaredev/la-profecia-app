@@ -1,4 +1,5 @@
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
+import 'match_level.dart';
 import 'match_participant.dart';
 import 'match_turn.dart';
 
@@ -17,6 +18,7 @@ class MatchSession {
     required this.status,
     required this.startedAt,
     required this.pendingTurn,
+    this.allowedLevels = const <MatchLevel>[MatchLevel.cielo],
     this.remoteSessionId,
     this.remoteRoundId,
     this.remotePlayerIdsByParticipantId = const <int, String>{},
@@ -35,6 +37,7 @@ class MatchSession {
   final DateTime startedAt;
   final DateTime? endedAt;
   final MatchTurn? pendingTurn;
+  final List<MatchLevel> allowedLevels;
   final String? remoteSessionId;
   final String? remoteRoundId;
   final Map<int, String> remotePlayerIdsByParticipantId;
@@ -73,6 +76,7 @@ class MatchSession {
     DateTime? startedAt,
     DateTime? endedAt,
     MatchTurn? pendingTurn,
+    List<MatchLevel>? allowedLevels,
     String? remoteSessionId,
     String? remoteRoundId,
     Map<int, String>? remotePlayerIdsByParticipantId,
@@ -92,6 +96,7 @@ class MatchSession {
       startedAt: startedAt ?? this.startedAt,
       endedAt: endedAt ?? this.endedAt,
       pendingTurn: clearPendingTurn ? null : (pendingTurn ?? this.pendingTurn),
+      allowedLevels: allowedLevels ?? this.allowedLevels,
       remoteSessionId: remoteSessionId ?? this.remoteSessionId,
       remoteRoundId: remoteRoundId ?? this.remoteRoundId,
       remotePlayerIdsByParticipantId:
@@ -112,6 +117,7 @@ class MatchSession {
     'startedAt': startedAt.toIso8601String(),
     'endedAt': endedAt?.toIso8601String(),
     'pendingTurn': pendingTurn?.toJson(),
+    'allowedLevels': allowedLevels.map((level) => level.name).toList(),
     'remoteSessionId': remoteSessionId,
     'remoteRoundId': remoteRoundId,
     'remotePlayerIdsByParticipantId': remotePlayerIdsByParticipantId.map(
@@ -141,6 +147,10 @@ class MatchSession {
       pendingTurn: json['pendingTurn'] == null
           ? null
           : MatchTurn.fromJson(json['pendingTurn'] as Map<String, dynamic>),
+      allowedLevels: ((json['allowedLevels'] as List<dynamic>?) ?? const [])
+          .whereType<String>()
+          .map(MatchLevel.values.byName)
+          .toList(growable: false),
       remoteSessionId: json['remoteSessionId'] as String?,
       remoteRoundId: json['remoteRoundId'] as String?,
       remotePlayerIdsByParticipantId:
@@ -149,6 +159,13 @@ class MatchSession {
                 (key, value) => MapEntry(int.parse(key), value as String),
               ) ??
           const <int, String>{},
-    );
+    )._withLegacyAllowedLevels();
+  }
+
+  MatchSession _withLegacyAllowedLevels() {
+    if (allowedLevels.isNotEmpty) {
+      return this;
+    }
+    return copyWith(allowedLevels: MatchLevel.values);
   }
 }

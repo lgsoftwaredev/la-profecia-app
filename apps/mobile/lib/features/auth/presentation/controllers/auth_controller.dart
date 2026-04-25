@@ -108,6 +108,29 @@ class AuthController extends ChangeNotifier {
     });
   }
 
+  Future<bool> sendPasswordResetCode({required String email}) async {
+    return _runAuthAction(() async {
+      await _repository.sendPasswordResetCode(email: email.trim());
+      return true;
+    });
+  }
+
+  Future<bool> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    return _runAuthAction(() async {
+      await _repository.resetPasswordWithCode(
+        email: email.trim(),
+        code: code.trim(),
+        newPassword: newPassword.trim(),
+      );
+      _session = null;
+      return true;
+    });
+  }
+
   Future<void> signOut() async {
     _setStatus(AuthStatus.loading, clearError: true);
     try {

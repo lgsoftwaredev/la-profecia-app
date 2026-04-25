@@ -7,6 +7,7 @@ abstract class GameHistoryRepository {
     required String resultLabel,
     required int scoreDelta,
     required bool won,
+    String? headline,
   });
 
   Future<UserStatsSummary> readSummary();

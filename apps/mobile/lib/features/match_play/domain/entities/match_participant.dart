@@ -3,6 +3,7 @@ class MatchParticipant {
     required this.id,
     required this.name,
     this.pairIndex,
+    this.preferredPlayerId,
     this.authUserId,
     this.isAuthenticatedUser = false,
     this.score = 0,
@@ -12,6 +13,7 @@ class MatchParticipant {
   final int id;
   final String name;
   final int? pairIndex;
+  final int? preferredPlayerId;
   final String? authUserId;
   final bool isAuthenticatedUser;
   final int score;
@@ -21,6 +23,7 @@ class MatchParticipant {
     int? id,
     String? name,
     int? pairIndex,
+    int? preferredPlayerId,
     String? authUserId,
     bool? isAuthenticatedUser,
     int? score,
@@ -30,6 +33,7 @@ class MatchParticipant {
       id: id ?? this.id,
       name: name ?? this.name,
       pairIndex: pairIndex ?? this.pairIndex,
+      preferredPlayerId: preferredPlayerId ?? this.preferredPlayerId,
       authUserId: authUserId ?? this.authUserId,
       isAuthenticatedUser: isAuthenticatedUser ?? this.isAuthenticatedUser,
       score: score ?? this.score,
@@ -41,6 +45,7 @@ class MatchParticipant {
     'id': id,
     'name': name,
     'pairIndex': pairIndex,
+    'preferredPlayerId': preferredPlayerId,
     'authUserId': authUserId,
     'isAuthenticatedUser': isAuthenticatedUser,
     'score': score,
@@ -52,6 +57,7 @@ class MatchParticipant {
       id: json['id'] as int,
       name: json['name'] as String,
       pairIndex: json['pairIndex'] as int?,
+      preferredPlayerId: json['preferredPlayerId'] as int?,
       authUserId: json['authUserId'] as String?,
       isAuthenticatedUser: json['isAuthenticatedUser'] as bool? ?? false,
       score: json['score'] as int? ?? 0,

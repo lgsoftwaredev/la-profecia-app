@@ -8,6 +8,7 @@ import '../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../features/match_play/presentation/controllers/match_controller.dart';
 import '../../features/premium/domain/services/entitlement_service.dart';
 import '../../features/premium/domain/services/purchase_service.dart';
+import '../../features/profile/domain/services/profile_service.dart';
 import '../../features/suggestions/domain/services/suggestions_service.dart';
 
 final appScopeProvider = Provider<AppScope>((ref) {
@@ -42,6 +43,10 @@ final pushNotificationServiceProvider = Provider<PushNotificationService>((
 
 final adServiceProvider = Provider<AdService>((ref) {
   return ref.watch(appScopeProvider).adService;
+});
+
+final profileServiceProvider = Provider<ProfileService>((ref) {
+  return ref.watch(appScopeProvider).profileService;
 });
 
 final suggestionsServiceProvider = Provider<SuggestionsService>((ref) {

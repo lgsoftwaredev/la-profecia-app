@@ -15,6 +15,7 @@ class SupabaseHistoryDataSource {
     required String resultLabel,
     required int scoreDelta,
     required bool won,
+    String? headline,
   }) async {
     final client = _requiredClient();
     final userId = _requireUserId(client);
@@ -24,6 +25,7 @@ class SupabaseHistoryDataSource {
       'sessionId': sessionId,
       'resultLabel': resultLabel,
       'scoreDelta': scoreDelta,
+      'headline': headline,
       'playedAt': playedAt.toUtc().toIso8601String(),
     }, onConflict: 'userId,sessionId');
 
@@ -60,7 +62,7 @@ class SupabaseHistoryDataSource {
 
     final historyRows = await client
         .from('GameHistorySummary')
-        .select('sessionId,playedAt,resultLabel,scoreDelta')
+        .select('sessionId,playedAt,resultLabel,scoreDelta,headline')
         .eq('userId', userId)
         .order('playedAt', ascending: false);
 
@@ -87,6 +89,7 @@ class SupabaseHistoryDataSource {
               DateTime.fromMillisecondsSinceEpoch(0),
           resultLabel: resultLabel,
           scoreDelta: scoreDelta,
+          headline: item['headline'] as String?,
         ),
       );
     }

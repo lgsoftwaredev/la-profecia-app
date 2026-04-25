@@ -251,7 +251,6 @@ class _TutorialLevelCard extends StatelessWidget {
                                 children: [
                                   TutorialIconSquare(
                                     iconAsset: iconAsset,
-                                    useCleanInframundo: isInframundo,
                                     backgroundColor: iconSquareColor,
                                   ),
                                   const SizedBox(width: 8),

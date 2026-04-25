@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/providers/app_providers.dart';
 import '../../../../app/router/app_router.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/global_bottom_menu.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../game_mode_selection/presentation/pages/home_page.dart';
 import '../../../premium/presentation/pages/premium_menu_page.dart';
+import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../../suggestions/domain/entities/suggestion.dart';
 import '../../../suggestions/presentation/pages/suggestion_compose_final_group_page.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
 import '../../../tutorial/presentation/pages/tutorial_page.dart';
 import 'liquid_glass_demo_page.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({
     this.showBottomMenu = true,
     this.onGlobalMenuRequested,
@@ -24,10 +26,10 @@ class SettingsPage extends StatefulWidget {
   final ValueChanged<GlobalBottomMenuItem>? onGlobalMenuRequested;
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends ConsumerState<SettingsPage> {
   var _soundEnabled = true;
 
   Future<void> _onBottomMenuItemSelected(GlobalBottomMenuItem item) async {
@@ -136,11 +138,17 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _openSuggestionFlow() async {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final isPremium = container.read(premiumAccessProvider);
+    if (!isPremium) {
+      _openPremium();
+      return;
+    }
+
     final type = await _pickSuggestionType();
     if (type == null || !mounted) {
       return;
     }
-    final container = ProviderScope.containerOf(context, listen: false);
     final isAuthenticated = container.read(isAuthenticatedProvider);
     if (!isAuthenticated) {
       await showDialog<void>(
@@ -172,35 +180,64 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _confirmDeleteAccount() async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Eliminar cuenta'),
+          content: const Text(
+            'Esta accion es irreversible. ¿Seguro que quieres eliminar tu cuenta?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFC83A3A),
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
+    );
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    await ref.read(authControllerProvider).signOut();
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Cuenta eliminada.')));
+    if (widget.onGlobalMenuRequested != null) {
+      widget.onGlobalMenuRequested!(GlobalBottomMenuItem.home);
+      return;
+    }
+
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.popUntil((route) => route.isFirst);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isPremium = ref.watch(premiumAccessProvider);
+
     return Scaffold(
       extendBody: true,
       body: Stack(
         fit: StackFit.expand,
         children: [
           Image.asset('assets/background-home.png', fit: BoxFit.cover),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0x59060315),
-                  const Color(0xFF06020F).withValues(alpha: 0.98),
-                ],
-              ),
-            ),
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment(-0.86, -1.02),
-                radius: 0.92,
-                colors: [Color(0x5B2E3A66), Colors.transparent],
-              ),
-            ),
-          ),
           SafeArea(
             bottom: false,
             child: Padding(
@@ -284,16 +321,20 @@ class _SettingsPageState extends State<SettingsPage> {
                                 'assets/logo-icon-proponer-questions.png',
                             title: 'Proponer retos y preguntas',
                             premiumSubtitle: true,
-                            onTap: _openSuggestionFlow,
+                            onTap: isPremium
+                                ? _openSuggestionFlow
+                                : _openPremium,
                           ),
-                          const SizedBox(height: AppSpacing.xl),
-                          _SettingsItemRow(
-                            iconAsset:
-                                'assets/logo-icon-premium-corona-outlined.png',
-                            title: 'Desbloquear',
-                            trailing: _PremiumBadge(),
-                            onTap: _openPremium,
-                          ),
+                          if (!isPremium) ...[
+                            const SizedBox(height: AppSpacing.xl),
+                            _SettingsItemRow(
+                              iconAsset:
+                                  'assets/logo-icon-premium-corona-outlined.png',
+                              title: 'Desbloquear',
+                              trailing: _PremiumBadge(),
+                              onTap: _openPremium,
+                            ),
+                          ],
                           const SizedBox(height: AppSpacing.xl),
                           const _SettingsItemRow(
                             iconAsset: 'assets/logo-icon-acercade.png',
@@ -303,6 +344,12 @@ class _SettingsPageState extends State<SettingsPage> {
                           const _SettingsItemRow(
                             iconAsset: 'assets/logo-icon-audifonos.png',
                             title: 'Soporte',
+                          ),
+                          const SizedBox(height: AppSpacing.xl),
+                          _SettingsItemRow(
+                            iconAsset: 'assets/logo-icon-lock.png',
+                            title: 'Eliminar cuenta',
+                            onTap: _confirmDeleteAccount,
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           Text(

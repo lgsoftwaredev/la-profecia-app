@@ -43,6 +43,8 @@ flutter:
   assets:
     - assets/
     - assets/videos/
+    - assets/logo-icons-player-setup/couple/
+    - assets/logo-icons-player-setup/friends/
     - .env
 
   fonts:

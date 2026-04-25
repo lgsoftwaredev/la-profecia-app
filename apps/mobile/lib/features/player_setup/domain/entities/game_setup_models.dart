@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/game_rules.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../../match_play/domain/entities/match_level.dart';
+import '../../../profile/domain/entities/editable_profile.dart';
 
 enum GameStyleTheme { cielo, tierra, infierno, inframundo }
 
@@ -12,6 +13,13 @@ extension GameStyleThemeX on GameStyleTheme {
     GameStyleTheme.tierra => 'TIERRA',
     GameStyleTheme.infierno => 'INFIERNO',
     GameStyleTheme.inframundo => 'INFRAMUNDO',
+  };
+
+  String get subtitle => switch (this) {
+    GameStyleTheme.cielo => 'Nivel fácil',
+    GameStyleTheme.tierra => 'Nivel intermedio',
+    GameStyleTheme.infierno => 'Nivel difícil',
+    GameStyleTheme.inframundo => 'Nivel extremo',
   };
 
   String get iconAsset => switch (this) {
@@ -51,30 +59,44 @@ class PlayerConfig {
   const PlayerConfig({
     required this.id,
     required this.name,
+    required this.avatarAssetPath,
     this.pairIndex,
     this.authUserId,
     this.isAuthenticatedUser = false,
+    this.identity,
+    this.attraction,
   });
 
   final int id;
   final String name;
+  final String avatarAssetPath;
   final int? pairIndex;
   final String? authUserId;
   final bool isAuthenticatedUser;
+  final ProfileIdentity? identity;
+  final ProfileAttraction? attraction;
 
   PlayerConfig copyWith({
     int? id,
     String? name,
+    String? avatarAssetPath,
     int? pairIndex,
     String? authUserId,
     bool? isAuthenticatedUser,
+    ProfileIdentity? identity,
+    bool clearIdentity = false,
+    ProfileAttraction? attraction,
+    bool clearAttraction = false,
   }) {
     return PlayerConfig(
       id: id ?? this.id,
       name: name ?? this.name,
+      avatarAssetPath: avatarAssetPath ?? this.avatarAssetPath,
       pairIndex: pairIndex ?? this.pairIndex,
       authUserId: authUserId ?? this.authUserId,
       isAuthenticatedUser: isAuthenticatedUser ?? this.isAuthenticatedUser,
+      identity: clearIdentity ? null : (identity ?? this.identity),
+      attraction: clearAttraction ? null : (attraction ?? this.attraction),
     );
   }
 }
@@ -84,7 +106,7 @@ class GameSetupState {
     required this.mode,
     required this.groupCount,
     required this.players,
-    required this.selectedTheme,
+    required this.enabledThemes,
     required this.isPremium,
     required this.showValidationErrors,
   });
@@ -92,7 +114,7 @@ class GameSetupState {
   final GameMode mode;
   final int groupCount;
   final List<PlayerConfig> players;
-  final GameStyleTheme selectedTheme;
+  final List<GameStyleTheme> enabledThemes;
   final bool isPremium;
   final bool showValidationErrors;
 
@@ -110,12 +132,15 @@ class GameSetupState {
   bool get canStart => players.every((player) => player.name.trim().isNotEmpty);
 
   bool themeIsLocked(GameStyleTheme theme) => theme.isPremiumOnly && !isPremium;
+  bool isThemeEnabled(GameStyleTheme theme) => enabledThemes.contains(theme);
+  GameStyleTheme get preferredTheme =>
+      enabledThemes.isEmpty ? GameStyleTheme.cielo : enabledThemes.first;
 
   GameSetupState copyWith({
     GameMode? mode,
     int? groupCount,
     List<PlayerConfig>? players,
-    GameStyleTheme? selectedTheme,
+    List<GameStyleTheme>? enabledThemes,
     bool? isPremium,
     bool? showValidationErrors,
   }) {
@@ -123,7 +148,7 @@ class GameSetupState {
       mode: mode ?? this.mode,
       groupCount: groupCount ?? this.groupCount,
       players: players ?? this.players,
-      selectedTheme: selectedTheme ?? this.selectedTheme,
+      enabledThemes: enabledThemes ?? this.enabledThemes,
       isPremium: isPremium ?? this.isPremium,
       showValidationErrors: showValidationErrors ?? this.showValidationErrors,
     );
@@ -135,11 +160,14 @@ class GameSetupSubmission {
     required this.mode,
     required this.players,
     required this.pairs,
-    required this.selectedTheme,
+    required this.enabledThemes,
   });
 
   final GameMode mode;
   final List<PlayerConfig> players;
   final List<List<PlayerConfig>> pairs;
-  final GameStyleTheme selectedTheme;
+  final List<GameStyleTheme> enabledThemes;
+
+  GameStyleTheme get preferredTheme =>
+      enabledThemes.isEmpty ? GameStyleTheme.cielo : enabledThemes.first;
 }

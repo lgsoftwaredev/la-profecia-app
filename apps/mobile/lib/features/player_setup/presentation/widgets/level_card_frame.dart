@@ -103,3 +103,121 @@ class LevelCardFrame extends StatelessWidget {
     );
   }
 }
+
+class VerticalLevelCardFrame extends StatelessWidget {
+  const VerticalLevelCardFrame({
+    required this.child,
+    required this.borderColor,
+    required this.baseTopColor,
+    required this.baseBottomColor,
+    required this.bottomTintStrong,
+    required this.bottomTintSoft,
+    required this.topLineColor,
+    required this.topShadowStrongAlpha,
+    required this.topShadowSoftAlpha,
+    required this.onTap,
+    this.enabled = true,
+    this.width = 101,
+    this.borderRadius = 18,
+    this.borderThickness = 1.1,
+    this.contentPadding = const EdgeInsets.fromLTRB(10, 9, 10, 9),
+    this.glowColor,
+    super.key,
+  });
+
+  final Widget child;
+  final Color borderColor;
+  final Color baseTopColor;
+  final Color baseBottomColor;
+  final Color bottomTintStrong;
+  final Color bottomTintSoft;
+  final Color topLineColor;
+  final double topShadowStrongAlpha;
+  final double topShadowSoftAlpha;
+  final VoidCallback onTap;
+  final bool enabled;
+  final double width;
+  final double borderRadius;
+  final double borderThickness;
+  final EdgeInsetsGeometry contentPadding;
+  final Color? glowColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final outerBorderGradient = LinearGradient(
+      begin: Alignment.bottomCenter,
+      end: Alignment.topCenter,
+      colors: [
+        borderColor.withValues(alpha: 0.92),
+        borderColor.withValues(alpha: 0.38),
+        borderColor.withValues(alpha: 0.04),
+      ],
+      stops: const [0.0, 0.55, .9],
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(borderRadius),
+        onTap: enabled ? onTap : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          width: width,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(borderRadius),
+            gradient: outerBorderGradient,
+          ),
+          child: Container(
+            margin: EdgeInsets.all(borderThickness),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(
+                borderRadius - borderThickness,
+              ),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [baseTopColor, baseBottomColor],
+              ),
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        bottomTintStrong,
+                        bottomTintSoft,
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.52, 0.92],
+                    ),
+                  ),
+                ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: topShadowStrongAlpha),
+                        Colors.black.withValues(alpha: topShadowSoftAlpha),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.30, 0.76],
+                    ),
+                  ),
+                ),
+                Padding(padding: contentPadding, child: child),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

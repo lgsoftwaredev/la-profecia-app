@@ -19,6 +19,7 @@ class MockGameHistoryRepository implements GameHistoryRepository {
     required String resultLabel,
     required int scoreDelta,
     required bool won,
+    String? headline,
   }) async {
     final items = _loadItems();
     items.add(<String, dynamic>{
@@ -27,6 +28,7 @@ class MockGameHistoryRepository implements GameHistoryRepository {
       'resultLabel': resultLabel,
       'scoreDelta': scoreDelta,
       'won': won,
+      'headline': headline,
     });
 
     await _preferences.setString(_storageKey, jsonEncode(items));
@@ -56,6 +58,7 @@ class MockGameHistoryRepository implements GameHistoryRepository {
           playedAt: DateTime.parse(item['playedAt'] as String),
           resultLabel: item['resultLabel'] as String,
           scoreDelta: scoreDelta,
+          headline: item['headline'] as String?,
         ),
       );
     }

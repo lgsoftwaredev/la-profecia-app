@@ -37,7 +37,7 @@ class SupabaseContentDataSource {
     final table = kind == MatchPromptKind.question ? 'Question' : 'Challenge';
     final rows = await client
         .from(table)
-        .select('id,text')
+        .select('id,text,variables,timerSeconds,hasMatchEffect')
         .eq('modeId', modeId)
         .eq('levelId', levelId)
         .eq('isActive', true);
@@ -50,6 +50,9 @@ class SupabaseContentDataSource {
     final selected = rows[_random.nextInt(rows.length)];
     final remoteContentId = _asInt(selected['id']);
     final text = selected['text'] as String?;
+    final timerSeconds = _asInt(selected['timerSeconds']);
+    final hasMatchEffect = selected['hasMatchEffect'] == true;
+    final templateTokens = _readTemplateTokens(selected['variables']);
     if (remoteContentId == null || text == null || text.trim().isEmpty) {
       throw const AppFailure(
         'Contenido con formato inválido. Verifica integridad de datos y permisos.',
@@ -62,6 +65,9 @@ class SupabaseContentDataSource {
       level: level,
       kind: kind,
       remoteContentId: remoteContentId,
+      templateTokens: templateTokens,
+      timerSeconds: timerSeconds,
+      hasMatchEffect: hasMatchEffect,
     );
   }
 
@@ -142,6 +148,24 @@ class SupabaseContentDataSource {
       return int.tryParse(value);
     }
     return null;
+  }
+
+  List<String> _readTemplateTokens(Object? value) {
+    if (value is! Map) {
+      return const <String>[];
+    }
+    final tokensRaw = value['tokens'];
+    if (tokensRaw is! List) {
+      return const <String>[];
+    }
+
+    final tokens = <String>[];
+    for (final item in tokensRaw) {
+      if (item is String && item.trim().isNotEmpty) {
+        tokens.add(item.trim());
+      }
+    }
+    return tokens;
   }
 
   String _modeCode(GameMode mode) {

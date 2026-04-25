@@ -291,7 +291,6 @@ class _TutorialPointsCard extends StatelessWidget {
                   children: [
                     TutorialIconSquare(
                       iconAsset: iconAsset,
-                      useCleanInframundo: true,
                       // backgroundColor: levelColor.withValues(alpha: 0.24),
                     ),
                     const SizedBox(height: 2),

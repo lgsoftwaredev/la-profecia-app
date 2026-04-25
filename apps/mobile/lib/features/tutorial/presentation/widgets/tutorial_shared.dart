@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/asset_looping_background_video.dart';
 
 const _tutorialBottomReservedSpace = 190.0;
@@ -34,18 +33,6 @@ class TutorialBackground extends StatelessWidget {
           )
         else
           Image.asset(assetPath!, fit: BoxFit.cover),
-        Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                AppColors.backgroundOverlayTop,
-                AppColors.backgroundOverlayBottom,
-              ],
-            ),
-          ),
-        ),
         SafeArea(
           bottom: false,
           child: Padding(
@@ -61,20 +48,15 @@ class TutorialBackground extends StatelessWidget {
 class TutorialIconSquare extends StatelessWidget {
   const TutorialIconSquare({
     required this.iconAsset,
-    this.useCleanInframundo = false,
     this.backgroundColor,
     super.key,
   });
 
   final String iconAsset;
-  final bool useCleanInframundo;
   final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
-    final isInframundo =
-        useCleanInframundo && iconAsset.contains('inframundo-icon-logo');
-
     return Container(
       width: 46,
       height: 46,
@@ -83,16 +65,7 @@ class TutorialIconSquare extends StatelessWidget {
         color: backgroundColor ?? Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: isInframundo
-          ? Text(
-              '😈',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontSize: 31,
-                color: const Color(0xFFC246FF),
-                fontWeight: FontWeight.w700,
-              ),
-            )
-          : Image.asset(iconAsset, width: 38, height: 38, fit: BoxFit.contain),
+      child: Image.asset(iconAsset, width: 38, height: 38, fit: BoxFit.contain),
     );
   }
 }

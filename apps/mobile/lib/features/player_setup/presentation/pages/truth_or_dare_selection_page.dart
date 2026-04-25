@@ -4,19 +4,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/providers/app_providers.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
+import '../../../match_play/domain/entities/game_prompt.dart';
 import '../../../game_mode_selection/presentation/pages/home_page.dart';
 import '../../../match_play/presentation/providers/match_providers.dart';
 import '../../../match_play/domain/entities/truth_or_dare_option.dart';
 import '../../../match_play/presentation/pages/final_judgment_page.dart';
+import '../../../match_play/presentation/pages/truth_or_dare_turn_page.dart';
 import '../../../match_play/presentation/utils/active_player_name_resolver.dart';
 import '../../domain/entities/game_setup_models.dart';
 import '../widgets/premium_glass_surface.dart';
-import 'start_points_page.dart';
 
 class TruthOrDareSelectionPage extends ConsumerStatefulWidget {
-  const TruthOrDareSelectionPage({required this.submission, super.key});
+  const TruthOrDareSelectionPage({
+    required this.submission,
+    required this.selectedTheme,
+    super.key,
+  });
 
   final GameSetupSubmission submission;
+  final GameStyleTheme selectedTheme;
 
   @override
   ConsumerState<TruthOrDareSelectionPage> createState() =>
@@ -25,7 +31,7 @@ class TruthOrDareSelectionPage extends ConsumerStatefulWidget {
 
 class _TruthOrDareSelectionPageState
     extends ConsumerState<TruthOrDareSelectionPage> {
-  dynamic _selectedOption;
+  TruthOrDareOption? _selectedOption;
 
   int _playerPoints(int? currentParticipantId, Map<int, int> scoresByPlayerId) {
     if (currentParticipantId == null) {
@@ -34,14 +40,47 @@ class _TruthOrDareSelectionPageState
     return scoresByPlayerId[currentParticipantId] ?? 0;
   }
 
-  Future<void> _openStartPointsPage(TruthOrDareOption option) async {
+  Future<void> _openTurnPage(TruthOrDareOption option) async {
     final submission =
         ref.read(activeSetupSubmissionProvider) ?? widget.submission;
     ref.read(activeSetupSubmissionProvider.notifier).state = submission;
+
+    final kind = option == TruthOrDareOption.verdad
+        ? MatchPromptKind.question
+        : MatchPromptKind.challenge;
+    final controller = ref.read(matchControllerProvider);
+    final preferredLevel = widget.selectedTheme.toMatchLevel;
+    final availableLevels = controller.availableLevels;
+    final selectedLevel = availableLevels.contains(preferredLevel)
+        ? preferredLevel
+        : availableLevels.isNotEmpty
+        ? availableLevels.first
+        : preferredLevel;
+    final turn = await controller.startTurn(
+      kind: kind,
+      preferredLevel: selectedLevel,
+      forceNewTurnWhenPending: true,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (turn == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo iniciar el turno.')),
+      );
+      return;
+    }
+
+    final points = ref.read(matchScoresProvider)[turn.participantId] ?? 0;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            StartPointsPage(submission: submission, selectedOption: option),
+        builder: (_) => TruthOrDareTurnPage(
+          submission: submission,
+          option: option,
+          round: turn.roundNumber,
+          points: points,
+          initialTurn: turn,
+        ),
       ),
     );
   }
@@ -275,9 +314,7 @@ class _TruthOrDareSelectionPageState
                                                 )
                                                 .state =
                                             submission;
-                                        _openStartPointsPage(
-                                          TruthOrDareOption.verdad,
-                                        );
+                                        _openTurnPage(TruthOrDareOption.verdad);
                                       },
                                     ),
                                   ),
@@ -305,9 +342,7 @@ class _TruthOrDareSelectionPageState
                                                 )
                                                 .state =
                                             submission;
-                                        _openStartPointsPage(
-                                          TruthOrDareOption.reto,
-                                        );
+                                        _openTurnPage(TruthOrDareOption.reto);
                                       },
                                     ),
                                   ),

@@ -24,6 +24,9 @@ import '../../features/premium/data/services/store_purchase_service.dart';
 import '../../features/premium/data/services/supabase_entitlement_service.dart';
 import '../../features/premium/domain/services/entitlement_service.dart';
 import '../../features/premium/domain/services/purchase_service.dart';
+import '../../features/profile/data/services/supabase_profile_service.dart';
+import '../../features/profile/data/services/unavailable_profile_service.dart';
+import '../../features/profile/domain/services/profile_service.dart';
 import '../../features/suggestions/data/repositories/supabase_suggestions_repository.dart';
 import '../../features/suggestions/domain/services/suggestions_service.dart';
 
@@ -36,6 +39,7 @@ class AppScope {
     required this.analyticsService,
     required this.pushNotificationService,
     required this.adService,
+    required this.profileService,
     required this.suggestionsService,
   });
 
@@ -48,6 +52,7 @@ class AppScope {
   final AnalyticsService analyticsService;
   final PushNotificationService pushNotificationService;
   final AdService adService;
+  final ProfileService profileService;
   final SuggestionsService suggestionsService;
 
   static Future<AppScope> bootstrap() async {
@@ -92,6 +97,9 @@ class AppScope {
       client: client,
       analyticsService: analyticsService,
     );
+    final profileService = client == null
+        ? const UnavailableProfileService()
+        : SupabaseProfileService(client: client);
     final suggestionsService = SuggestionsService(
       repository: SupabaseSuggestionsRepository(client: client),
       analyticsService: analyticsService,
@@ -132,6 +140,7 @@ class AppScope {
       analyticsService: analyticsService,
       pushNotificationService: pushNotificationService,
       adService: adService,
+      profileService: profileService,
       suggestionsService: suggestionsService,
     );
 

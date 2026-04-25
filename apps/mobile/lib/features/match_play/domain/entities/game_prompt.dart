@@ -9,6 +9,9 @@ class GamePrompt {
     required this.level,
     required this.kind,
     this.remoteContentId,
+    this.templateTokens = const <String>[],
+    this.timerSeconds,
+    this.hasMatchEffect = false,
   });
 
   final String id;
@@ -16,4 +19,7 @@ class GamePrompt {
   final MatchLevel level;
   final MatchPromptKind kind;
   final int? remoteContentId;
+  final List<String> templateTokens;
+  final int? timerSeconds;
+  final bool hasMatchEffect;
 }

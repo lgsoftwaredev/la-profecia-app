@@ -83,6 +83,7 @@ model Profile {
   id                 String               @id @db.Uuid
   username           String?              @unique @db.VarChar(40)
   displayName        String?              @db.VarChar(100)
+  defaultPreferenceName String?           @db.VarChar(80)
   email              String?              @unique
   avatarUrl          String?
   countryCode        String?              @db.VarChar(8)
@@ -106,6 +107,8 @@ model UserPreference {
   userId            String   @unique @db.Uuid
   soundEnabled      Boolean  @default(true)
   tutorialCompleted Boolean  @default(false)
+  genderIdentity    String?  @db.VarChar(16)
+  attractionTarget  String?  @db.VarChar(16)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   user              Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -165,6 +168,9 @@ model Question {
   levelId          Int?
   categoryId       Int?
   text             String
+  variables        Json      @default("{}")
+  timerSeconds     Int?
+  hasMatchEffect   Boolean   @default(false)
   isOfficial       Boolean   @default(true)
   isActive         Boolean   @default(true)
   createdByUserId  String?   @db.Uuid
@@ -185,6 +191,9 @@ model Challenge {
   levelId          Int?
   categoryId       Int?
   text             String
+  variables        Json      @default("{}")
+  timerSeconds     Int?
+  hasMatchEffect   Boolean   @default(false)
   isOfficial       Boolean   @default(true)
   isActive         Boolean   @default(true)
   createdByUserId  String?   @db.Uuid
@@ -223,6 +232,8 @@ model SessionPlayer {
   id            String        @id @default(uuid()) @db.Uuid
   sessionId     String        @db.Uuid
   displayName   String        @db.VarChar(80)
+  preferenceName String?      @db.VarChar(80)
+  preferenceSeatOrder Int?
   seatOrder     Int
   pairIndex     Int?
   profileId     String?       @db.Uuid
@@ -325,6 +336,7 @@ model GameHistorySummary {
   sessionId  String      @db.Uuid
   resultLabel String     @db.VarChar(40)
   scoreDelta Int         @default(0)
+  headline   String?     @db.VarChar(120)
   playedAt   DateTime    @default(now())
   user       Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
   session    GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)

@@ -17,7 +17,7 @@ class SuggestionComposeFinalGroupPage extends ConsumerWidget {
     mode: GameMode.friends,
     players: <PlayerConfig>[],
     pairs: <List<PlayerConfig>>[],
-    selectedTheme: GameStyleTheme.cielo,
+    enabledThemes: <GameStyleTheme>[GameStyleTheme.cielo],
   );
 
   @override

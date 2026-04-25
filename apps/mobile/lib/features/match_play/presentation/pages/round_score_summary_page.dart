@@ -5,7 +5,7 @@ import '../../../../app/providers/app_providers.dart';
 import '../../../../core/services/ad_service.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
-import '../../../player_setup/presentation/pages/truth_or_dare_selection_page.dart';
+import '../../../player_setup/presentation/pages/start_points_page.dart';
 import 'final_judgment_page.dart';
 import 'round_score_summary_couple_page.dart';
 import 'round_score_summary_friends_page.dart';
@@ -52,7 +52,7 @@ class RoundScoreSummaryPage extends ConsumerWidget {
       }
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (_) => TruthOrDareSelectionPage(submission: submission),
+          builder: (_) => StartPointsPage(submission: submission),
         ),
       );
     }

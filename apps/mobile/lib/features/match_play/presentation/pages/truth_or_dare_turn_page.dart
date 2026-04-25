@@ -145,7 +145,7 @@ class _TruthOrDareTurnPageState extends ConsumerState<TruthOrDareTurnPage> {
     ref.watch(matchPendingLevelProvider);
     final selectedTheme =
         ref.read(matchPendingLevelProvider)?.toGameStyleTheme ??
-        submission.selectedTheme;
+        submission.preferredTheme;
     final themeAccent = selectedTheme.accentColor;
 
     return Scaffold(

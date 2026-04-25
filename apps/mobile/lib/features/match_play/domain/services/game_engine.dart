@@ -27,6 +27,9 @@ class GameEngine {
           ),
         )
         .toList(growable: false);
+    final configuredLevels = setup.enabledThemes
+        .map((theme) => theme.toMatchLevel)
+        .toSet();
 
     final firstId = participants.isEmpty ? 1 : participants.first.id;
     final activeCount = participants.length;
@@ -43,15 +46,23 @@ class GameEngine {
       status: MatchSessionStatus.active,
       startedAt: DateTime.now(),
       pendingTurn: null,
+      allowedLevels: MatchLevel.values
+          .where(configuredLevels.contains)
+          .toList(growable: false),
     );
   }
 
   List<MatchLevel> availableLevels({
     required int completedRounds,
     required bool hasPremium,
+    List<MatchLevel>? allowedLevels,
   }) {
+    final allowedSet = allowedLevels?.toSet();
     return MatchLevel.values
         .where((level) {
+          if (allowedSet != null && !allowedSet.contains(level)) {
+            return false;
+          }
           final unlockedByRound =
               completedRounds >= level.requiredCompletedRounds;
           if (!unlockedByRound) {
@@ -74,6 +85,7 @@ class GameEngine {
     final available = availableLevels(
       completedRounds: session.completedRounds,
       hasPremium: hasPremium,
+      allowedLevels: session.allowedLevels,
     );
 
     if (available.isEmpty) {
@@ -109,6 +121,8 @@ class GameEngine {
       promptKind: promptKind,
       promptText: prompt.text,
       remoteContentId: prompt.remoteContentId,
+      timerSeconds: prompt.timerSeconds,
+      hasMatchEffect: prompt.hasMatchEffect,
     );
 
     return session.copyWith(pendingTurn: turn);

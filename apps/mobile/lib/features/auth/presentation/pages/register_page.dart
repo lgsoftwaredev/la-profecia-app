@@ -137,27 +137,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         fit: StackFit.expand,
         children: [
           Image.asset('assets/background-home.png', fit: BoxFit.cover),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0x59060315),
-                  const Color(0xFF06020F).withValues(alpha: 0.98),
-                ],
-              ),
-            ),
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment(-0.86, -1.0),
-                radius: 0.92,
-                colors: [Color(0x59315C96), Colors.transparent],
-              ),
-            ),
-          ),
           SafeArea(
             bottom: false,
             child: Padding(
@@ -165,24 +144,44 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               child: Column(
                 children: [
                   const SizedBox(height: AppSpacing.sm),
-                  Row(
+                  Stack(
+                    alignment: Alignment.topCenter,
                     children: [
-                      Text(
-                        'Regístrate',
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.96),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 50 * 0.66,
-                            ),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 132,
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: _HeaderSideButton(
+                            onTap: () {
+                              if (Navigator.of(context).canPop()) {
+                                Navigator.of(context).pop();
+                              }
+                            },
+                          ),
+                        ),
                       ),
-                      const Spacer(),
-                      _HeaderSideButton(
-                        onTap: () {
-                          if (Navigator.of(context).canPop()) {
-                            Navigator.of(context).pop();
-                          }
-                        },
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(height: AppSpacing.xxl * 1.8),
+                          Image.asset(
+                            'assets/logo-icon-register-user.png',
+                            width: 112,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            'Regístrate',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.96),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 50 * 0.66,
+                                ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -594,16 +593,16 @@ class _HeaderSideButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 48,
-      height: 86,
+      width: 44,
+      height: 44,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(26),
+          borderRadius: BorderRadius.circular(999),
           onTap: onTap,
           child: Ink(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
+              borderRadius: BorderRadius.circular(999),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -617,7 +616,7 @@ class _HeaderSideButton extends StatelessWidget {
             child: Center(
               child: Icon(
                 Icons.chevron_left_rounded,
-                size: 34,
+                size: 24,
                 color: Colors.white.withValues(alpha: 0.84),
               ),
             ),

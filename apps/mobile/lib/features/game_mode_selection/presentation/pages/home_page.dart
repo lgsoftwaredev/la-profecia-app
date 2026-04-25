@@ -10,7 +10,7 @@ import '../../../match_play/domain/entities/game_prompt.dart';
 import '../../../match_play/presentation/providers/match_providers.dart';
 import '../../../match_play/domain/entities/truth_or_dare_option.dart';
 import '../../../match_play/presentation/pages/truth_or_dare_turn_page.dart';
-import '../../../player_setup/presentation/pages/truth_or_dare_selection_page.dart';
+import '../../../player_setup/presentation/pages/start_points_page.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
 import '../../../premium/presentation/pages/premium_menu_page.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
@@ -134,7 +134,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => TruthOrDareSelectionPage(submission: submission),
+        builder: (_) => StartPointsPage(submission: submission),
       ),
     );
   }
@@ -196,15 +196,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         fit: StackFit.expand,
         children: [
           Image.asset('assets/background-mode.png', fit: BoxFit.cover),
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x4D04010B), AppColors.backgroundOverlayBottom],
-              ),
-            ),
-          ),
           SafeArea(
             bottom: false,
             child: LayoutBuilder(
@@ -261,7 +252,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       _selectedMode.isCouples
                           ? 'assets/logo-simple-signature.png'
                           : 'assets/logo-simple-blue.png',
-                      height: _selectedMode.isCouples ? 88 : 88,
+                      height: 64,
                       fit: BoxFit.contain,
                     ),
                     const SizedBox(height: AppSpacing.lg),
@@ -276,7 +267,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                       height: carouselHeight,
                       child: HomeModeCarousel(onModeChanged: _onModeChanged),
                     ),
-                    const SizedBox(height: AppSpacing.xxl * 1.5),
 
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),

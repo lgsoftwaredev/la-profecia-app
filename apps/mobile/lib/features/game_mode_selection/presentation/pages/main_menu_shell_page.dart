@@ -10,19 +10,25 @@ import '../../../settings/presentation/pages/settings_page.dart';
 import 'home_page.dart';
 
 class MainMenuShellPage extends ConsumerStatefulWidget {
-  const MainMenuShellPage({super.key});
+  const MainMenuShellPage({
+    this.initialItem = GlobalBottomMenuItem.home,
+    super.key,
+  });
+
+  final GlobalBottomMenuItem initialItem;
 
   @override
   ConsumerState<MainMenuShellPage> createState() => _MainMenuShellPageState();
 }
 
 class _MainMenuShellPageState extends ConsumerState<MainMenuShellPage> {
-  var _currentItem = GlobalBottomMenuItem.home;
+  late GlobalBottomMenuItem _currentItem;
   late final PageController _pageController;
 
   @override
   void initState() {
     super.initState();
+    _currentItem = widget.initialItem;
     _pageController = PageController(initialPage: _indexForItem(_currentItem));
   }
 

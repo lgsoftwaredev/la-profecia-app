@@ -129,6 +129,91 @@ class SupabaseAuthDataSource {
     );
   }
 
+  Future<void> sendPasswordResetCode({required String email}) async {
+    final client = _requiredClient();
+    final normalizedEmail = email.trim();
+    if (normalizedEmail.isEmpty) {
+      throw const AppFailure('Ingresa un correo valido.');
+    }
+
+    try {
+      await client.auth.resetPasswordForEmail(normalizedEmail);
+    } on AuthException catch (error) {
+      final message = error.message.toLowerCase();
+      if (message.contains('email')) {
+        throw const AppFailure('Ingresa un correo valido.');
+      }
+      throw const AppFailure(
+        'No se pudo enviar el codigo de recuperación. Intenta nuevamente.',
+      );
+    } catch (_) {
+      throw const AppFailure(
+        'No se pudo enviar el codigo de recuperación. Intenta nuevamente.',
+      );
+    }
+  }
+
+  Future<void> resetPasswordWithCode({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final client = _requiredClient();
+    final normalizedEmail = email.trim();
+    final normalizedCode = code.trim();
+    final normalizedPassword = newPassword.trim();
+    if (normalizedEmail.isEmpty) {
+      throw const AppFailure('Ingresa un correo valido.');
+    }
+    if (normalizedCode.isEmpty) {
+      throw const AppFailure('Ingresa el codigo de recuperación.');
+    }
+    if (normalizedPassword.length < 6) {
+      throw const AppFailure('La contraseña debe tener al menos 6 caracteres.');
+    }
+
+    try {
+      await client.auth.verifyOTP(
+        email: normalizedEmail,
+        token: normalizedCode,
+        type: OtpType.recovery,
+      );
+      await client.auth.updateUser(
+        UserAttributes(password: normalizedPassword),
+      );
+      await client.auth.signOut();
+    } on AuthException catch (error) {
+      final code = (error.code ?? '').toLowerCase();
+      final message = error.message.toLowerCase();
+      if (code == 'same_password' ||
+          message.contains(
+            'new password should be different from the old password.',
+          )) {
+        throw const AppFailure(
+          'La nueva contraseña debe ser diferente a la anterior.',
+        );
+      }
+      if (message.contains('token') ||
+          message.contains('otp') ||
+          message.contains('expired') ||
+          message.contains('invalid')) {
+        throw const AppFailure('El codigo es invalido o expiró.');
+      }
+      if (message.contains('password')) {
+        throw const AppFailure(
+          'No se pudo actualizar la contraseña. Verifica los requisitos.',
+        );
+      }
+      throw const AppFailure(
+        'No se pudo restablecer la contraseña. Intenta nuevamente.',
+      );
+    } catch (_) {
+      throw const AppFailure(
+        'No se pudo restablecer la contraseña. Intenta nuevamente.',
+      );
+    }
+  }
+
   Future<AuthSession> signInWithGoogle() async {
     final client = _requiredClient();
     _validateGoogleSignInConfig();
@@ -405,6 +490,14 @@ class SupabaseAuthDataSource {
     if (client == null) {
       return;
     }
+    final authenticatedUser = client.auth.currentUser;
+    if (authenticatedUser == null) {
+      return;
+    }
+    // RLS evalúa auth.uid() contra el JWT activo, por eso siempre usamos
+    // el usuario actual de sesión para id/email del upsert.
+    final targetUserId = authenticatedUser.id;
+    final targetEmail = authenticatedUser.email ?? user.email;
 
     final metadata = user.userMetadata;
     final username =
@@ -419,8 +512,8 @@ class SupabaseAuthDataSource {
 
     try {
       await client.from('Profile').upsert(<String, dynamic>{
-        'id': user.id,
-        'email': user.email,
+        'id': targetUserId,
+        'email': targetEmail,
         'username': username,
         'displayName': displayName,
         'countryCode': countryCode,
@@ -428,17 +521,22 @@ class SupabaseAuthDataSource {
       }, onConflict: 'id');
 
       await client.from('UserStats').upsert(<String, dynamic>{
-        'userId': user.id,
+        'userId': targetUserId,
       }, onConflict: 'userId');
 
       await client.from('UserPreference').upsert(<String, dynamic>{
-        'userId': user.id,
+        'userId': targetUserId,
       }, onConflict: 'userId');
-    } catch (_) {
+    } catch (error) {
+      if (error is PostgrestException &&
+          (error.code ?? '').toLowerCase() == '42501') {
+        throw const AppFailure(
+          'Permisos insuficientes por RLS en Profile. Revisa que el JWT activo corresponda al mismo id.',
+        );
+      }
       throw const AppFailure(
         'No se pudo asegurar perfil de usuario. Verifica integridad de datos y permisos.',
       );
-      // Do not break auth when profile bootstrap fails.
     }
   }
 

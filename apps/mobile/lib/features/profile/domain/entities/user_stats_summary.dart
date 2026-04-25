@@ -20,10 +20,12 @@ class GameHistoryItem {
     required this.playedAt,
     required this.resultLabel,
     required this.scoreDelta,
+    this.headline,
   });
 
   final String sessionId;
   final DateTime playedAt;
   final String resultLabel;
   final int scoreDelta;
+  final String? headline;
 }

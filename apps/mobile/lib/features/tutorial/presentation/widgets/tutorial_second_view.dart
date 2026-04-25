@@ -16,7 +16,10 @@ class TutorialSecondView extends StatelessWidget {
       assetPath: 'assets/background-tutorial-2.png',
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final cardsHeight = (constraints.maxHeight * 0.5).clamp(360.0, 460.0);
+          final cardsHeight = (constraints.maxHeight * 0.55).clamp(
+            360.0,
+            460.0,
+          );
           final cardWidth = constraints.maxWidth * 0.7;
 
           return SingleChildScrollView(
@@ -69,8 +72,16 @@ class TutorialSecondView extends StatelessWidget {
                             _ModeFeatureItem(emoji: '🔥', label: 'Más Picante'),
                             _ModeFeatureItem(emoji: '😇', label: 'Más Honesto'),
                           ],
-                          footerText:
-                              'Ideal si creen que se conocen...\nspoiler: no tanto.',
+                          footerSpans: const [
+                            TextSpan(
+                              text:
+                                  'Ideal si creen que se conocen...\nspoiler: ',
+                            ),
+                            TextSpan(
+                              text: 'no tanto.',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ],
                         ),
                         SizedBox(width: AppSpacing.md),
                         _ModeCard(
@@ -94,8 +105,15 @@ class TutorialSecondView extends StatelessWidget {
                               label: 'Más intenso',
                             ),
                           ],
-                          footerText:
-                              'Perfecto para destapar secretos y\nmejorar la relación 😉',
+                          footerSpans: const [
+                            TextSpan(
+                              text: 'Perfecto para reír con amigos o para ',
+                            ),
+                            TextSpan(
+                              text: 'encender la cosa si hay atracción 😉',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -145,7 +163,7 @@ class _ModeCard extends StatelessWidget {
     required this.title,
     required this.imagePath,
     required this.items,
-    required this.footerText,
+    required this.footerSpans,
   });
 
   final double width;
@@ -155,7 +173,7 @@ class _ModeCard extends StatelessWidget {
   final String title;
   final String imagePath;
   final List<_ModeFeatureItem> items;
-  final String footerText;
+  final List<InlineSpan> footerSpans;
 
   @override
   Widget build(BuildContext context) {
@@ -291,11 +309,11 @@ class _ModeCard extends StatelessWidget {
                           const SizedBox(height: AppSpacing.xs),
                       ],
                       const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        footerText,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontSize: 15.5,
-                          height: 1.3,
+                      Text.rich(
+                        TextSpan(
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(fontSize: 15.5, height: 1.3),
+                          children: footerSpans,
                         ),
                       ),
                     ],
