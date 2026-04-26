@@ -6,6 +6,7 @@ import '../../../../core/services/ad_service.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
 import '../../../player_setup/presentation/pages/start_points_page.dart';
+import 'final_judgment_intro_video_page.dart';
 import 'final_judgment_page.dart';
 import 'round_score_summary_couple_page.dart';
 import 'round_score_summary_friends_page.dart';
@@ -57,6 +58,44 @@ class RoundScoreSummaryPage extends ConsumerWidget {
       );
     }
 
+    void onFinishMatchTap() async {
+      await ref
+          .read(adServiceProvider)
+          .showInterstitialIfEligible(AdPlacement.roundSummaryToNextRound);
+      if (!context.mounted) {
+        return;
+      }
+
+      final controller = ref.read(matchControllerProvider);
+      if (!endMatchOnNext) {
+        final result = await controller.finishMatchManually();
+        if (!context.mounted) {
+          return;
+        }
+        if (result == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo finalizar la partida.')),
+          );
+          return;
+        }
+      }
+
+      if (!context.mounted) {
+        return;
+      }
+      final latestScores = controller.scoresByPlayerId.isEmpty
+          ? scoresByPlayerId
+          : controller.scoresByPlayerId;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => FinalJudgmentIntroVideoPage(
+            submission: submission,
+            scoresByPlayerId: latestScores,
+          ),
+        ),
+      );
+    }
+
     if (submission.mode.isFriends) {
       return RoundScoreSummaryFriendsPage(
         submission: submission,
@@ -67,6 +106,7 @@ class RoundScoreSummaryPage extends ConsumerWidget {
         didComplete: didComplete,
         endMatchOnNext: endMatchOnNext,
         onNextRoundTap: onNextRoundTap,
+        onFinishMatchTap: onFinishMatchTap,
       );
     }
 
@@ -79,6 +119,7 @@ class RoundScoreSummaryPage extends ConsumerWidget {
       didComplete: didComplete,
       endMatchOnNext: endMatchOnNext,
       onNextRoundTap: onNextRoundTap,
+      onFinishMatchTap: onFinishMatchTap,
     );
   }
 }

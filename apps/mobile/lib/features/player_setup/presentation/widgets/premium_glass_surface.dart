@@ -15,6 +15,9 @@ class PremiumGlassSurface extends StatelessWidget {
     this.outerShadows = const [],
     this.topHighlightOpacity = 0.14,
     this.bottomShadeOpacity = 0.20,
+    this.topHighlightColor = Colors.white,
+    this.bottomShadeColor = Colors.black,
+    this.topLineHighlightColor,
     this.innerBorderColor,
     this.gradientBegin = Alignment.topLeft,
     this.gradientEnd = Alignment.bottomRight,
@@ -31,6 +34,9 @@ class PremiumGlassSurface extends StatelessWidget {
   final List<BoxShadow> outerShadows;
   final double topHighlightOpacity;
   final double bottomShadeOpacity;
+  final Color topHighlightColor;
+  final Color bottomShadeColor;
+  final Color? topLineHighlightColor;
   final Color? innerBorderColor;
   final AlignmentGeometry gradientBegin;
   final AlignmentGeometry gradientEnd;
@@ -60,9 +66,9 @@ class PremiumGlassSurface extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.white.withValues(alpha: topHighlightOpacity),
+                    topHighlightColor.withValues(alpha: topHighlightOpacity),
                     Colors.transparent,
-                    Colors.black.withValues(alpha: bottomShadeOpacity),
+                    bottomShadeColor.withValues(alpha: bottomShadeOpacity),
                   ],
                   stops: const [0, 0.96, 1],
                 ),
@@ -79,7 +85,7 @@ class PremiumGlassSurface extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: [
                       Colors.transparent,
-                      Colors.white.withValues(
+                      (topLineHighlightColor ?? topHighlightColor).withValues(
                         alpha: topHighlightOpacity + 0.11,
                       ),
                       Colors.transparent,

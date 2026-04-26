@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../../app/providers/app_providers.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -16,7 +17,7 @@ import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 import '../../domain/entities/game_setup_models.dart';
 import '../widgets/level_card_frame.dart';
-import '../widgets/premium_glass_surface.dart';
+import '../widgets/round_top_header.dart';
 import '../widgets/start_points_roulette_wheel.dart';
 import 'truth_or_dare_selection_page.dart';
 
@@ -29,13 +30,17 @@ class StartPointsPage extends ConsumerStatefulWidget {
   ConsumerState<StartPointsPage> createState() => _StartPointsPageState();
 }
 
-class _StartPointsPageState extends ConsumerState<StartPointsPage> {
+class _StartPointsPageState extends ConsumerState<StartPointsPage>
+    with SingleTickerProviderStateMixin {
   static const _order = [
     GameStyleTheme.cielo,
     GameStyleTheme.tierra,
     GameStyleTheme.infierno,
     GameStyleTheme.inframundo,
   ];
+  static const _takeoverScaleDelta = 1.65;
+  static const _takeoverLift = -68.0;
+  static const _surroundingFadeDelta = 1;
 
   late List<GameStyleTheme> _enabledThemes = _normalizeThemes(
     widget.submission.enabledThemes,
@@ -48,7 +53,25 @@ class _StartPointsPageState extends ConsumerState<StartPointsPage> {
   var _didBootstrapMatch = false;
   var _isEditingEnabledThemes = false;
   var _isHandlingBackAction = false;
+  var _isNavigatingFromRoulette = false;
+  var _isRouletteTakeoverActive = false;
   var _showPremiumText = false;
+  GameStyleTheme? _pendingThemeAfterTakeover;
+  late final AnimationController _rouletteTakeoverController =
+      AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 1000),
+        )
+        ..addListener(() {
+          if (mounted) {
+            setState(() {});
+          }
+        })
+        ..addStatusListener((status) {
+          if (status == AnimationStatus.completed) {
+            _flushPendingSpinIfReady();
+          }
+        });
 
   static List<GameStyleTheme> _normalizeThemes(List<GameStyleTheme> input) {
     final normalized = _order.where(input.contains).toList(growable: false);
@@ -78,6 +101,76 @@ class _StartPointsPageState extends ConsumerState<StartPointsPage> {
       _didBootstrapMatch = true;
       _bootstrapMatch();
     });
+  }
+
+  @override
+  void dispose() {
+    _rouletteTakeoverController.dispose();
+    super.dispose();
+  }
+
+  double get _takeoverProgress =>
+      Curves.easeOutCubic.transform(_rouletteTakeoverController.value);
+
+  double get _takeoverScale => 1 + (_takeoverProgress * _takeoverScaleDelta);
+
+  double get _takeoverTranslateY => _takeoverProgress * _takeoverLift;
+
+  double get _surroundingOpacity =>
+      (1 - (_takeoverProgress * _surroundingFadeDelta)).clamp(0.0, 1.0);
+
+  void _onRouletteSpinStarted() {
+    if (_isRouletteTakeoverActive || _isNavigatingFromRoulette) {
+      return;
+    }
+    setState(() {
+      _isRouletteTakeoverActive = true;
+      _showPremiumText = false;
+    });
+    _rouletteTakeoverController.forward(from: 0);
+  }
+
+  Future<void> _onRouletteSpinCompleted(GameStyleTheme selectedTheme) async {
+    if (_isNavigatingFromRoulette || !mounted) {
+      return;
+    }
+    if (_isRouletteTakeoverActive &&
+        _rouletteTakeoverController.status != AnimationStatus.completed) {
+      _pendingThemeAfterTakeover = selectedTheme;
+      return;
+    }
+
+    _pendingThemeAfterTakeover = null;
+    _isNavigatingFromRoulette = true;
+    await _openTruthOrDareSelectionPage(selectedTheme);
+    if (!mounted) {
+      return;
+    }
+    _isNavigatingFromRoulette = false;
+    _resetRouletteTakeover();
+  }
+
+  void _flushPendingSpinIfReady() {
+    final pendingTheme = _pendingThemeAfterTakeover;
+    if (pendingTheme == null ||
+        _rouletteTakeoverController.status != AnimationStatus.completed ||
+        !mounted) {
+      return;
+    }
+    _pendingThemeAfterTakeover = null;
+    _onRouletteSpinCompleted(pendingTheme);
+  }
+
+  void _resetRouletteTakeover() {
+    _pendingThemeAfterTakeover = null;
+    if (_rouletteTakeoverController.value != 0) {
+      _rouletteTakeoverController.value = 0;
+    }
+    if (_isRouletteTakeoverActive) {
+      setState(() {
+        _isRouletteTakeoverActive = false;
+      });
+    }
   }
 
   GameSetupSubmission _submissionWithThemes({
@@ -120,7 +213,18 @@ class _StartPointsPageState extends ConsumerState<StartPointsPage> {
     if (!mounted) {
       return;
     }
-    Navigator.of(context).push(
+    if (selectedTheme.toMatchLevel == MatchLevel.inframundo) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => _InframundoLevelIntroVideoPage(
+            submission: submission,
+            selectedTheme: selectedTheme,
+          ),
+        ),
+      );
+      return;
+    }
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => TruthOrDareSelectionPage(
           submission: submission,
@@ -396,155 +500,188 @@ class _StartPointsPageState extends ConsumerState<StartPointsPage> {
             ),
             SafeArea(
               bottom: false,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  AppSpacing.sm,
-                  AppSpacing.lg,
-                  AppSpacing.xxl,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _TopHeader(
-                      round: currentRound,
-                      isFriendsMode: activeSubmission.mode.isFriends,
-                      onBackTap: _handleBackAction,
-                      onSettingsTap: _openSettings,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Center(
-                      child: Column(
-                        children: [
-                          Text(
-                            currentPlayerName,
-                            style: Theme.of(context).textTheme.headlineLarge
-                                ?.copyWith(
-                                  color: modeAccent,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 46 * 0.72,
-                                ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Elige el nivel',
-                            style: Theme.of(context).textTheme.headlineLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 29,
-                                ),
-                          ),
-                          Text(
-                            'que quieras jugar',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.82),
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 20 * 0.72,
-                                ),
-                          ),
-                        ],
+              child: IgnorePointer(
+                ignoring: _isRouletteTakeoverActive,
+                child: SingleChildScrollView(
+                  physics: _isRouletteTakeoverActive
+                      ? const NeverScrollableScrollPhysics()
+                      : const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    AppSpacing.xxl,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Opacity(
+                        opacity: _surroundingOpacity,
+                        child: RoundTopHeader(
+                          round: currentRound,
+                          isFriendsMode: activeSubmission.mode.isFriends,
+                          onBackTap: _handleBackAction,
+                          onSettingsTap: _openSettings,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Center(
-                      child: StartPointsRouletteWheel(
-                        selectedTheme: selectedThemeForUi,
-                        availableThemes: rouletteThemes,
-                        hasPremiumAccess: isPremium,
-                        isFriendsMode: activeSubmission.mode.isFriends,
-                        modeAccent: modeAccent,
-                        onThemeChanged: (theme) {
-                          setState(() => _selectedTheme = theme);
-                        },
-                        onSpinCompleted: _openTruthOrDareSelectionPage,
+                      const SizedBox(height: AppSpacing.md),
+                      Opacity(
+                        opacity: _surroundingOpacity,
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Text(
+                                currentPlayerName,
+                                style: Theme.of(context).textTheme.headlineLarge
+                                    ?.copyWith(
+                                      color: modeAccent,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 46 * 0.72,
+                                    ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Elige el nivel',
+                                style: Theme.of(context).textTheme.headlineLarge
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 29,
+                                    ),
+                              ),
+                              Text(
+                                'que quieras jugar',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.82,
+                                      ),
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 20 * 0.72,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    _RiskEditRow(
-                      isPremium: isPremium,
-                      isEditing: _isEditingEnabledThemes,
-                      onEditTap: _startEditingThemes,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    SizedBox(
-                      height: 122,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemBuilder: (context, index) {
-                          final theme = _order[index];
-                          final isEnabled = _isEditingEnabledThemes
-                              ? _draftEnabledThemes.contains(theme)
-                              : _enabledThemes.contains(theme);
-                          final isRoundLocked =
-                              completedRounds <
-                              theme.toMatchLevel.requiredCompletedRounds;
-                          final isPremiumLocked =
-                              !isPremium && theme.toMatchLevel.isPremium;
-                          return _LevelTile(
-                            theme: theme,
-                            isEnabled: isEnabled,
-                            isEditing: _isEditingEnabledThemes,
-                            isPremiumLocked: isPremiumLocked,
-                            isRoundLocked: isRoundLocked,
-                            onTap: () {
-                              if (_isEditingEnabledThemes) {
-                                _toggleDraftTheme(
-                                  theme: theme,
-                                  isPremium: isPremium,
-                                );
-                                return;
-                              }
-                              if (isPremiumLocked) {
-                                final isGuest = !ref.read(
-                                  isAuthenticatedProvider,
-                                );
-                                ref
-                                    .read(analyticsServiceProvider)
-                                    .logPremiumCtaViewed(
-                                      source: 'start_points_edit_locked_theme',
-                                      isGuest: isGuest,
-                                      level: theme.toMatchLevel.name,
-                                    );
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const PremiumMenuPage(),
-                                  ),
-                                );
-                                return;
-                              }
-                              if (_enabledThemes.contains(theme)) {
+                      const SizedBox(height: AppSpacing.md),
+                      Center(
+                        child: Transform.translate(
+                          offset: Offset(0, _takeoverTranslateY),
+                          child: Transform.scale(
+                            scale: _takeoverScale,
+                            child: StartPointsRouletteWheel(
+                              selectedTheme: selectedThemeForUi,
+                              availableThemes: rouletteThemes,
+                              hasPremiumAccess: isPremium,
+                              isFriendsMode: activeSubmission.mode.isFriends,
+                              modeAccent: modeAccent,
+                              onSpinStarted: _onRouletteSpinStarted,
+                              onThemeChanged: (theme) {
                                 setState(() => _selectedTheme = theme);
-                              }
-                            },
-                          );
-                        },
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(width: AppSpacing.sm),
-                        itemCount: _order.length,
+                              },
+                              onSpinCompleted: _onRouletteSpinCompleted,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    if (_isEditingEnabledThemes) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      _EditActions(
-                        onConfirmTap: _confirmEnabledThemes,
-                        onCancelTap: _cancelEditingThemes,
+                      const SizedBox(height: AppSpacing.md),
+                      Opacity(
+                        opacity: _surroundingOpacity,
+                        child: Column(
+                          children: [
+                            _RiskEditRow(
+                              isPremium: isPremium,
+                              isEditing: _isEditingEnabledThemes,
+                              onEditTap: _startEditingThemes,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            SizedBox(
+                              height: 122,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemBuilder: (context, index) {
+                                  final theme = _order[index];
+                                  final isEnabled = _isEditingEnabledThemes
+                                      ? _draftEnabledThemes.contains(theme)
+                                      : _enabledThemes.contains(theme);
+                                  final isRoundLocked =
+                                      completedRounds <
+                                      theme
+                                          .toMatchLevel
+                                          .requiredCompletedRounds;
+                                  final isPremiumLocked =
+                                      !isPremium &&
+                                      theme.toMatchLevel.isPremium;
+                                  return _LevelTile(
+                                    theme: theme,
+                                    isEnabled: isEnabled,
+                                    isEditing: _isEditingEnabledThemes,
+                                    isPremiumLocked: isPremiumLocked,
+                                    isRoundLocked: isRoundLocked,
+                                    onTap: () {
+                                      if (_isEditingEnabledThemes) {
+                                        _toggleDraftTheme(
+                                          theme: theme,
+                                          isPremium: isPremium,
+                                        );
+                                        return;
+                                      }
+                                      if (isPremiumLocked) {
+                                        final isGuest = !ref.read(
+                                          isAuthenticatedProvider,
+                                        );
+                                        ref
+                                            .read(analyticsServiceProvider)
+                                            .logPremiumCtaViewed(
+                                              source:
+                                                  'start_points_edit_locked_theme',
+                                              isGuest: isGuest,
+                                              level: theme.toMatchLevel.name,
+                                            );
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute<void>(
+                                            builder: (_) =>
+                                                const PremiumMenuPage(),
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      if (_enabledThemes.contains(theme)) {
+                                        setState(() => _selectedTheme = theme);
+                                      }
+                                    },
+                                  );
+                                },
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: AppSpacing.sm),
+                                itemCount: _order.length,
+                              ),
+                            ),
+                            if (_isEditingEnabledThemes) ...[
+                              const SizedBox(height: AppSpacing.sm),
+                              _EditActions(
+                                onConfirmTap: _confirmEnabledThemes,
+                                onCancelTap: _cancelEditingThemes,
+                              ),
+                            ],
+                            const SizedBox(height: AppSpacing.lg),
+                            _PlayersSection(
+                              submission: activeSubmission,
+                              scoresByPlayerId: scoresByPlayerId,
+                              currentParticipantId: currentParticipantId,
+                              accentColor: modeAccent,
+                            ),
+                            const SizedBox(height: AppSpacing.xl),
+                            const _BottomCardsHint(),
+                          ],
+                        ),
                       ),
                     ],
-                    const SizedBox(height: AppSpacing.lg),
-                    _PlayersSection(
-                      submission: activeSubmission,
-                      scoresByPlayerId: scoresByPlayerId,
-                      currentParticipantId: currentParticipantId,
-                      accentColor: modeAccent,
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    const _BottomCardsHint(),
-                  ],
+                  ),
                 ),
               ),
             ),
-            if (!isPremium)
+            if (!isPremium && !_isRouletteTakeoverActive)
               Positioned(
                 top: 154,
                 right: -4,
@@ -563,6 +700,8 @@ class _StartPointsPageState extends ConsumerState<StartPointsPage> {
                   ),
                 ),
               ),
+            if (_isRouletteTakeoverActive)
+              const Positioned.fill(child: AbsorbPointer(child: SizedBox())),
           ],
         ),
       ),
@@ -571,152 +710,6 @@ class _StartPointsPageState extends ConsumerState<StartPointsPage> {
 }
 
 enum _CloseDecision { keep, finish }
-
-class _TopHeader extends StatelessWidget {
-  const _TopHeader({
-    required this.round,
-    required this.isFriendsMode,
-    required this.onBackTap,
-    required this.onSettingsTap,
-  });
-
-  final int round;
-  final bool isFriendsMode;
-  final VoidCallback onBackTap;
-  final VoidCallback onSettingsTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 56,
-      child: Row(
-        children: [
-          _HeaderCircleButton(
-            onTap: onBackTap,
-            child: const Icon(
-              Icons.chevron_left_rounded,
-              color: Colors.white,
-              size: 29,
-            ),
-          ),
-          const Spacer(),
-          _RoundCapsule(round: round, isFriendsMode: isFriendsMode),
-          const Spacer(),
-          _HeaderCircleButton(
-            onTap: onSettingsTap,
-            child: Image.asset(
-              'assets/menu-logo-icon-settings.png',
-              width: 21,
-              height: 21,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderCircleButton extends StatelessWidget {
-  const _HeaderCircleButton({required this.onTap, required this.child});
-
-  final VoidCallback onTap;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(22);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: radius,
-        child: PremiumGlassSurface(
-          width: 60,
-          height: 46,
-          borderRadius: radius,
-          gradientColors: const [Color(0x88353B51), Color(0x55313749)],
-          borderColor: Colors.white.withValues(alpha: 0.34),
-          innerBorderColor: Colors.white.withValues(alpha: 0.10),
-          topHighlightOpacity: 0.22,
-          bottomShadeOpacity: 0.20,
-          child: Center(child: child),
-        ),
-      ),
-    );
-  }
-}
-
-class _RoundCapsule extends StatelessWidget {
-  const _RoundCapsule({required this.round, required this.isFriendsMode});
-
-  final int round;
-  final bool isFriendsMode;
-
-  @override
-  Widget build(BuildContext context) {
-    final leftColor = isFriendsMode
-        ? const Color(0xFF214C72)
-        : const Color(0xFF6C2D5E);
-    final midColor = isFriendsMode
-        ? const Color(0xFF1D2E49)
-        : const Color(0xFF4C2A5B);
-    final rightColor = isFriendsMode
-        ? const Color(0xFF262B3D)
-        : const Color(0xFF2B233C);
-    final capsuleBorder = isFriendsMode
-        ? const Color(0xFF86C8FF)
-        : const Color(0xFFF6A3CE);
-    final badgeColor = isFriendsMode
-        ? const Color(0xFF2B4866)
-        : const Color(0xFF5A375E);
-
-    return IntrinsicWidth(
-      child: PremiumGlassSurface(
-        height: 46,
-        borderRadius: BorderRadius.circular(22),
-        gradientBegin: Alignment.centerLeft,
-        gradientEnd: Alignment.centerRight,
-        gradientColors: [leftColor, midColor, rightColor],
-        borderColor: capsuleBorder.withValues(alpha: 0.55),
-        innerBorderColor: Colors.white.withValues(alpha: 0.10),
-        topHighlightOpacity: 0.15,
-        bottomShadeOpacity: 0.20,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 29,
-              height: 29,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: badgeColor,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '$round',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 18 * 0.72,
-                ),
-              ),
-            ),
-            const SizedBox(width: 9),
-            Text(
-              'Ronda',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w500,
-                color: Colors.white.withValues(alpha: 0.92),
-                fontSize: 35 * 0.50,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _RiskEditRow extends StatelessWidget {
   const _RiskEditRow({
@@ -1453,4 +1446,124 @@ class _ScorePairGroup {
 
   final int pairNumber;
   final List<_ScorePlayer> members;
+}
+
+class _InframundoLevelIntroVideoPage extends StatefulWidget {
+  const _InframundoLevelIntroVideoPage({
+    required this.submission,
+    required this.selectedTheme,
+  });
+
+  final GameSetupSubmission submission;
+  final GameStyleTheme selectedTheme;
+
+  @override
+  State<_InframundoLevelIntroVideoPage> createState() =>
+      _InframundoLevelIntroVideoPageState();
+}
+
+class _InframundoLevelIntroVideoPageState
+    extends State<_InframundoLevelIntroVideoPage> {
+  static const _videoAssetPath = 'assets/videos/video-nivel-inframundo.mp4';
+
+  VideoPlayerController? _controller;
+  var _navigated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    final controller = VideoPlayerController.asset(_videoAssetPath);
+    _controller = controller;
+    controller.addListener(_handleVideoProgress);
+
+    try {
+      await controller.initialize();
+      await controller.setLooping(false);
+      await controller.play();
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (_) {
+      _openTruthOrDareSelectionPage();
+    }
+  }
+
+  void _handleVideoProgress() {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return;
+    }
+    final duration = controller.value.duration;
+    if (duration <= Duration.zero) {
+      return;
+    }
+    if (controller.value.position >=
+        duration - const Duration(milliseconds: 120)) {
+      _openTruthOrDareSelectionPage();
+    }
+  }
+
+  void _openTruthOrDareSelectionPage() {
+    if (!mounted || _navigated) {
+      return;
+    }
+    _navigated = true;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => TruthOrDareSelectionPage(
+          submission: widget.submission,
+          selectedTheme: widget.selectedTheme,
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_handleVideoProgress);
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    final isReady = controller != null && controller.value.isInitialized;
+
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (isReady)
+              FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: controller.value.size.width,
+                  height: controller.value.size.height,
+                  child: VideoPlayer(controller),
+                ),
+              )
+            else
+              const Center(
+                child: SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }

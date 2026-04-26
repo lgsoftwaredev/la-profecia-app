@@ -11,8 +11,10 @@ import '../../../match_play/domain/entities/truth_or_dare_option.dart';
 import '../../../match_play/presentation/pages/final_judgment_page.dart';
 import '../../../match_play/presentation/pages/truth_or_dare_turn_page.dart';
 import '../../../match_play/presentation/utils/active_player_name_resolver.dart';
+import '../../../settings/presentation/pages/settings_page.dart';
 import '../../domain/entities/game_setup_models.dart';
-import '../widgets/premium_glass_surface.dart';
+import '../widgets/level_card_frame.dart';
+import '../widgets/round_top_header.dart';
 
 class TruthOrDareSelectionPage extends ConsumerStatefulWidget {
   const TruthOrDareSelectionPage({
@@ -32,6 +34,29 @@ class TruthOrDareSelectionPage extends ConsumerStatefulWidget {
 class _TruthOrDareSelectionPageState
     extends ConsumerState<TruthOrDareSelectionPage> {
   TruthOrDareOption? _selectedOption;
+
+  PlayerConfig? _activePlayerConfig({
+    required GameSetupSubmission submission,
+    required int? currentParticipantId,
+  }) {
+    if (submission.players.isEmpty) {
+      return null;
+    }
+    if (currentParticipantId == null) {
+      return submission.players.first;
+    }
+    for (final player in submission.players) {
+      if (player.id == currentParticipantId) {
+        return player;
+      }
+    }
+    return submission.players.first;
+  }
+
+  String _themeLabel(GameStyleTheme theme) {
+    final uppercase = theme.label;
+    return '${uppercase.substring(0, 1)}${uppercase.substring(1).toLowerCase()}';
+  }
 
   int _playerPoints(int? currentParticipantId, Map<int, int> scoresByPlayerId) {
     if (currentParticipantId == null) {
@@ -150,6 +175,12 @@ class _TruthOrDareSelectionPageState
     await _finishMatch();
   }
 
+  Future<void> _openSettings() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
+  }
+
   @override
   Widget build(BuildContext context) {
     final submission =
@@ -163,6 +194,14 @@ class _TruthOrDareSelectionPageState
         activeSession != null &&
         scoresByPlayerId.values.any((score) => score != 0);
     final currentParticipantId = activeSession?.currentParticipantId;
+    final currentRound = activeSession?.roundNumber ?? 1;
+    final selectedTheme = widget.selectedTheme;
+    final isInframundoTheme = selectedTheme == GameStyleTheme.inframundo;
+    final themeAccent = selectedTheme.accentColor;
+    final activePlayer = _activePlayerConfig(
+      submission: submission,
+      currentParticipantId: currentParticipantId,
+    );
     final currentPlayerName = resolveActivePlayerName(
       session: activeSession,
       submission: submission,
@@ -207,24 +246,31 @@ class _TruthOrDareSelectionPageState
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  center: const Alignment(-0.55, 0.05),
-                  radius: 0.78,
+                  center: const Alignment(0, -0.24),
+                  radius: 0.9,
                   colors: [
-                    glowBlue.withValues(alpha: 0.20),
+                    themeAccent.withValues(alpha: 0.34),
+                    themeAccent.withValues(alpha: 0.16),
                     Colors.transparent,
                   ],
+                  stops: const [0.0, 0.34, 0.84],
                 ),
               ),
             ),
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  center: const Alignment(0.58, 0.03),
-                  radius: 0.78,
+                  center: const Alignment(0, 0.75),
+                  radius: 1.02,
                   colors: [
-                    glowPink.withValues(alpha: 0.20),
+                    Color.lerp(
+                      themeAccent,
+                      Colors.black,
+                      0.32,
+                    )!.withValues(alpha: 0.24),
                     Colors.transparent,
                   ],
+                  stops: const [0.0, 0.62],
                 ),
               ),
             ),
@@ -235,48 +281,28 @@ class _TruthOrDareSelectionPageState
                 child: Column(
                   children: [
                     const SizedBox(height: AppSpacing.sm),
-                    SizedBox(
-                      height: 92,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Image.asset(
-                                'assets/logo-+18.png',
-                                width: 168,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                          ),
-                          if (hasAnyPoints)
-                            _HeaderFinalizeButton(
-                              onTap: () => _handleCloseAttempt(
-                                hasAnyPoints: hasAnyPoints,
-                              ),
-                            )
-                          else
-                            _HeaderSideButton(
-                              onTap: () => _handleCloseAttempt(
-                                hasAnyPoints: hasAnyPoints,
-                              ),
-                            ),
-                        ],
-                      ),
+                    RoundTopHeader(
+                      round: currentRound,
+                      isFriendsMode: submission.mode.isFriends,
+                      onBackTap: () =>
+                          _handleCloseAttempt(hasAnyPoints: hasAnyPoints),
+                      onSettingsTap: _openSettings,
                     ),
                     Expanded(
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.only(bottom: 170),
                         child: Column(
                           children: [
-                            const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              currentPlayerName,
-                              style: Theme.of(context).textTheme.headlineLarge
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 48 * 0.76,
-                                  ),
+                            const SizedBox(height: AppSpacing.xxl * 1.5),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.xxl * 1.5,
+                              ),
+                              child: _PlayerSummary(
+                                playerName: currentPlayerName,
+                                avatarAssetPath: activePlayer?.avatarAssetPath,
+                                accent: themeAccent,
+                              ),
                             ),
                             const SizedBox(height: AppSpacing.sm),
                             _PointsChip(
@@ -301,7 +327,7 @@ class _TruthOrDareSelectionPageState
                                           _selectedOption ==
                                           TruthOrDareOption.verdad,
                                       rotationY: 0.12,
-                                      glowColor: const Color(0xFF3BA8FF),
+                                      glowColor: glowBlue,
                                       onTap: () {
                                         setState(() {
                                           _selectedOption =
@@ -323,13 +349,14 @@ class _TruthOrDareSelectionPageState
                                     width: challengeWidth,
                                     child: _SelectableTriangleButton(
                                       label: 'Reto',
-                                      assetPath:
-                                          'assets/button-select-challenge.png',
+                                      assetPath: isInframundoTheme
+                                          ? 'assets/button-select-challenge-inframundo.png'
+                                          : 'assets/button-select-challenge.png',
                                       isSelected:
                                           _selectedOption ==
                                           TruthOrDareOption.reto,
                                       rotationY: -0.12,
-                                      glowColor: const Color(0xFFFF4DA2),
+                                      glowColor: glowPink,
                                       onTap: () {
                                         setState(() {
                                           _selectedOption =
@@ -357,6 +384,27 @@ class _TruthOrDareSelectionPageState
                 ),
               ),
             ),
+            if (isInframundoTheme)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Image.asset(
+                    'assets/background-bottom-inframundo.png',
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            Positioned(
+              top: 154,
+              left: -10,
+              child: _ThemeLevelSideBadge(
+                theme: selectedTheme,
+                label: _themeLabel(selectedTheme),
+                accent: themeAccent,
+              ),
+            ),
           ],
         ),
       ),
@@ -374,8 +422,8 @@ class _PointsChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+      height: 42,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
         color: const Color(0xFF15131D).withValues(alpha: 0.84),
@@ -498,44 +546,69 @@ class _SelectableTriangleButtonState extends State<_SelectableTriangleButton> {
   }
 }
 
-class _HeaderSideButton extends StatelessWidget {
-  const _HeaderSideButton({required this.onTap});
+class _ThemeLevelSideBadge extends StatelessWidget {
+  const _ThemeLevelSideBadge({
+    required this.theme,
+    required this.label,
+    required this.accent,
+  });
 
-  final VoidCallback onTap;
+  final GameStyleTheme theme;
+  final String label;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 52,
-      height: 84,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(30),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0xFF161037).withValues(alpha: 0.72),
-                  const Color(0xFF120B2D).withValues(alpha: 0.62),
-                ],
+      width: 80,
+      height: 86,
+      child: IgnorePointer(
+        child: VerticalLevelCardFrame(
+          onTap: () {},
+          enabled: false,
+          width: 62,
+          borderRadius: 14,
+          borderThickness: 1.1,
+          borderColor: Color.lerp(
+            accent,
+            const Color(0xCCBB7605),
+            0.36,
+          )!.withValues(alpha: 0.94),
+          baseTopColor: const Color(0xFF2A1C22).withValues(alpha: 0.96),
+          baseBottomColor: const Color(0xFF1A1016).withValues(alpha: 0.96),
+          bottomTintStrong: accent.withValues(alpha: 0.22),
+          bottomTintSoft: accent.withValues(alpha: 0.09),
+          topLineColor: accent.withValues(alpha: 0.26),
+          topShadowStrongAlpha: 0.42,
+          topShadowSoftAlpha: 0.20,
+          glowColor: accent.withValues(alpha: 0.28),
+          contentPadding: const EdgeInsets.fromLTRB(
+            AppSpacing.xs,
+            AppSpacing.xs,
+            AppSpacing.xs,
+            AppSpacing.xxs,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                theme.iconAsset,
+                width: 24,
+                height: 24,
+                fit: BoxFit.contain,
               ),
-              border: Border.all(
-                color: const Color(0xFF9D2E8A).withValues(alpha: 0.48),
-                width: 1,
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.95),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
-            ),
-            child: Center(
-              child: Icon(
-                Icons.chevron_left_rounded,
-                size: 32,
-                color: const Color(0xFFFF6FD7).withValues(alpha: 0.95),
-              ),
-            ),
+            ],
           ),
         ),
       ),
@@ -543,44 +616,75 @@ class _HeaderSideButton extends StatelessWidget {
   }
 }
 
-class _HeaderFinalizeButton extends StatelessWidget {
-  const _HeaderFinalizeButton({required this.onTap});
+class _PlayerSummary extends StatelessWidget {
+  const _PlayerSummary({
+    required this.playerName,
+    required this.avatarAssetPath,
+    required this.accent,
+  });
 
-  final VoidCallback onTap;
+  final String playerName;
+  final String? avatarAssetPath;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 154,
-      height: 52,
-      child: PremiumGlassSurface(
-        borderRadius: BorderRadius.circular(16),
-        gradientColors: [
-          const Color(0xFF7E2A53).withValues(alpha: 0.86),
-          const Color(0xFF3F1028).withValues(alpha: 0.92),
-        ],
-        borderColor: const Color(0xFFFF7FB9).withValues(alpha: 0.54),
-        innerBorderColor: Colors.white.withValues(alpha: 0.08),
-        topHighlightOpacity: 0.11,
-        bottomShadeOpacity: 0.16,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: onTap,
-            child: Center(
-              child: Text(
-                'Finalizar partida',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-              ),
+    final hasAvatar = avatarAssetPath != null && avatarAssetPath!.isNotEmpty;
+    return Column(
+      children: [
+        Container(
+          width: 62,
+          height: 62,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: accent.withValues(alpha: 0.75),
+              width: 1.4,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.35),
+                blurRadius: 18,
+                spreadRadius: 0.4,
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: hasAvatar
+                ? Image.asset(avatarAssetPath!, fit: BoxFit.cover)
+                : DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          accent.withValues(alpha: 0.9),
+                          Color.lerp(accent, Colors.black, 0.6)!,
+                        ],
+                      ),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.person_rounded,
+                        color: Colors.white,
+                        size: 30,
+                      ),
+                    ),
+                  ),
           ),
         ),
-      ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          playerName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            fontSize: 28,
+          ),
+        ),
+      ],
     );
   }
 }

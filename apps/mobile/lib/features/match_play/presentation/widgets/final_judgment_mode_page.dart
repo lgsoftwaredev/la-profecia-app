@@ -5,9 +5,14 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
+import '../../../player_setup/presentation/widgets/header_circle_button.dart';
+import '../../../player_setup/presentation/widgets/level_card_frame.dart';
+import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
+import '../../../settings/presentation/pages/settings_page.dart';
 import '../pages/final_group_challenge_page.dart';
 import '../pages/final_prophecy_challenge_page.dart';
-import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
+
+enum _PunishmentDecision { prophecy, group }
 
 class FinalJudgmentModePage extends StatefulWidget {
   const FinalJudgmentModePage({
@@ -28,18 +33,13 @@ class FinalJudgmentModePage extends StatefulWidget {
 }
 
 class _FinalJudgmentModePageState extends State<FinalJudgmentModePage> {
-  Color get _modeAccent => widget.submission.mode.isFriends
-      ? const Color(0xFF2A9DFF)
-      : const Color(0xFFE94494);
+  _PunishmentDecision? _selectedDecision;
+  var _openingPunishment = false;
 
-  String get _backgroundAsset => widget.submission.mode.isFriends
-      ? 'assets/background-setup-friends-mode.png'
-      : 'assets/background-setup-couple-mode.png';
+  _ModePalette get _palette => _ModePalette.fromMode(widget.submission.mode);
 
   List<PlayerConfig> get _players {
-    final named = widget.submission.players
-        .where((player) => player.name.trim().isNotEmpty)
-        .toList(growable: false);
+    final named = widget.submission.players.where((player) => player.name.trim().isNotEmpty).toList(growable: false);
     return named.isNotEmpty ? named : widget.submission.players;
   }
 
@@ -47,13 +47,16 @@ class _FinalJudgmentModePageState extends State<FinalJudgmentModePage> {
 
   List<_RankedPlayer> get _rankedPlayers {
     final ranked = _players
-        .map(
-          (player) =>
-              _RankedPlayer(player: player, score: _scoreFor(player.id)),
-        )
+        .map((player) => _RankedPlayer(player: player, score: _scoreFor(player.id)))
         .toList(growable: false);
 
-    ranked.sort((left, right) => right.score.compareTo(left.score));
+    ranked.sort((left, right) {
+      final byScore = right.score.compareTo(left.score);
+      if (byScore != 0) {
+        return byScore;
+      }
+      return left.player.id.compareTo(right.player.id);
+    });
     return ranked;
   }
 
@@ -61,6 +64,7 @@ class _FinalJudgmentModePageState extends State<FinalJudgmentModePage> {
     if (widget.submission.pairs.isNotEmpty) {
       return widget.submission.pairs;
     }
+
     final list = <List<PlayerConfig>>[];
     for (var i = 0; i < _players.length; i += 2) {
       list.add(_players.skip(i).take(2).toList(growable: false));
@@ -68,32 +72,157 @@ class _FinalJudgmentModePageState extends State<FinalJudgmentModePage> {
     return list;
   }
 
-  bool get _showPairRanking =>
-      widget.submission.mode.isCouples && _pairs.length > 1;
+  bool get _showPairRanking => widget.submission.mode.isCouples && _pairs.length > 1;
 
   List<_PairScoreSummary> get _pairSummaries {
     final summaries = <_PairScoreSummary>[];
     for (var index = 0; index < _pairs.length; index++) {
       final pairPlayers = _pairs[index];
-      final pairScore = pairPlayers
-          .map((player) => _scoreFor(player.id))
-          .fold<int>(0, (sum, score) => sum + score);
-      summaries.add(
-        _PairScoreSummary(
-          pairNumber: index + 1,
-          players: pairPlayers,
-          pairScore: pairScore,
-        ),
-      );
+      final pairScore = pairPlayers.map((player) => _scoreFor(player.id)).fold<int>(0, (sum, score) => sum + score);
+      summaries.add(_PairScoreSummary(pairNumber: index + 1, players: pairPlayers, pairScore: pairScore));
     }
-
-    summaries.sort((left, right) => left.pairScore.compareTo(right.pairScore));
     return summaries;
+  }
+
+  _PairScoreSummary? get _winnerPairSummary {
+    if (_pairSummaries.isEmpty) {
+      return null;
+    }
+    var winner = _pairSummaries.first;
+    for (final pair in _pairSummaries.skip(1)) {
+      if (pair.pairScore > winner.pairScore ||
+          (pair.pairScore == winner.pairScore && pair.pairNumber < winner.pairNumber)) {
+        winner = pair;
+      }
+    }
+    return winner;
+  }
+
+  _PairScoreSummary? get _loserPairSummary {
+    if (_pairSummaries.isEmpty) {
+      return null;
+    }
+    var loser = _pairSummaries.first;
+    for (final pair in _pairSummaries.skip(1)) {
+      if (pair.pairScore < loser.pairScore ||
+          (pair.pairScore == loser.pairScore && pair.pairNumber < loser.pairNumber)) {
+        loser = pair;
+      }
+    }
+    return loser;
   }
 
   String _safeName(PlayerConfig player) {
     final trimmed = player.name.trim();
     return trimmed.isEmpty ? 'Jugador ${player.id}' : trimmed;
+  }
+
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
+  }
+
+  Future<void> _openPunishmentPage(String punishedLabel) async {
+    if (!mounted || _selectedDecision == null || _openingPunishment) {
+      return;
+    }
+
+    setState(() {
+      _openingPunishment = true;
+    });
+
+    try {
+      final decision = _selectedDecision;
+      if (decision == _PunishmentDecision.prophecy) {
+        if (widget.onProphecyChallengeTap != null) {
+          widget.onProphecyChallengeTap!.call();
+          return;
+        }
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => FinalProphecyChallengePage(submission: widget.submission, punishedLabel: punishedLabel),
+          ),
+        );
+        return;
+      }
+
+      if (widget.onGroupDecisionTap != null) {
+        widget.onGroupDecisionTap!.call();
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => FinalGroupChallengePage(submission: widget.submission, punishedLabel: punishedLabel),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _openingPunishment = false;
+        });
+      }
+    }
+  }
+
+  _OutcomeSummary _winnerSummary(List<_RankedPlayer> rankedPlayers) {
+    if (_showPairRanking) {
+      final pair = _winnerPairSummary;
+      if (pair == null) {
+        return const _OutcomeSummary.empty(roleLabel: 'Ganador');
+      }
+      final name = 'Pareja ${pair.pairNumber}';
+      return _OutcomeSummary(
+        roleLabel: 'Ganador',
+        name: name,
+        score: pair.pairScore,
+        detail: 'Bien jugado, la rompieron!',
+        primaryAvatarAssetPath: pair.players.isNotEmpty ? pair.players.first.avatarAssetPath : null,
+        secondaryAvatarAssetPath: pair.players.length > 1 ? pair.players[1].avatarAssetPath : null,
+      );
+    }
+
+    if (rankedPlayers.isEmpty) {
+      return const _OutcomeSummary.empty(roleLabel: 'Ganador');
+    }
+
+    final winner = rankedPlayers.first;
+    return _OutcomeSummary(
+      roleLabel: 'Ganador',
+      name: _safeName(winner.player),
+      score: winner.score,
+      detail: 'Bien jugado, la rompiste',
+      primaryAvatarAssetPath: winner.player.avatarAssetPath,
+    );
+  }
+
+  _OutcomeSummary _loserSummary(List<_RankedPlayer> rankedPlayers) {
+    if (_showPairRanking) {
+      final pair = _loserPairSummary;
+      if (pair == null) {
+        return const _OutcomeSummary.empty(roleLabel: 'Perdedor');
+      }
+      final name = 'Pareja ${pair.pairNumber}';
+      return _OutcomeSummary(
+        roleLabel: 'Perdedor',
+        name: name,
+        score: pair.pairScore,
+        detail: 'Les falto meterle más...',
+        primaryAvatarAssetPath: pair.players.isNotEmpty ? pair.players.first.avatarAssetPath : null,
+        secondaryAvatarAssetPath: pair.players.length > 1 ? pair.players[1].avatarAssetPath : null,
+      );
+    }
+
+    if (rankedPlayers.isEmpty) {
+      return const _OutcomeSummary.empty(roleLabel: 'Perdedor');
+    }
+
+    final loser = rankedPlayers.last;
+    return _OutcomeSummary(
+      roleLabel: 'Perdedor',
+      name: _safeName(loser.player),
+      score: loser.score,
+      detail: 'Te faltó meterle más',
+      primaryAvatarAssetPath: loser.player.avatarAssetPath,
+    );
   }
 
   @override
@@ -102,41 +231,43 @@ class _FinalJudgmentModePageState extends State<FinalJudgmentModePage> {
     final pairSummaries = _pairSummaries;
 
     final loserLabel = _showPairRanking
-        ? 'Pareja ${pairSummaries.first.pairNumber}'
-        : (rankedPlayers.isNotEmpty
-              ? _safeName(rankedPlayers.last.player)
-              : '---');
+        ? 'Pareja ${_loserPairSummary?.pairNumber ?? 1}'
+        : (rankedPlayers.isNotEmpty ? _safeName(rankedPlayers.last.player) : 'Jugador 1');
+
+    final targetLabel = _showPairRanking ? 'PAREJA PERDEDORA' : loserLabel.toUpperCase();
+
+    final winnerSummary = _winnerSummary(rankedPlayers);
+    final loserSummary = _loserSummary(rankedPlayers);
+
+    final ctaEnabled = _selectedDecision != null && !_openingPunishment;
+    final ctaGradient = ctaEnabled ? _palette.enabledButtonGradient : const [Color(0xFF37404D), Color(0xFF1E232D)];
 
     return Scaffold(
       extendBody: true,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(_backgroundAsset, fit: BoxFit.cover),
+          Image.asset(_palette.backgroundAsset, fit: BoxFit.cover),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0x66050316),
-                  const Color(0xFF06020F).withValues(alpha: 0.96),
-                ],
+                colors: [const Color(0x6B050316), const Color(0xFF06020F).withValues(alpha: 0.97)],
               ),
             ),
           ),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: RadialGradient(
-                center: const Alignment(0, 0.05),
-                radius: 0.88,
+                center: const Alignment(0, -0.15),
+                radius: 1.05,
                 colors: [
-                  (widget.submission.mode.isFriends
-                          ? const Color(0xFF2562B8)
-                          : const Color(0xFFB90E32))
-                      .withValues(alpha: 0.50),
+                  _palette.glowCenter.withValues(alpha: 0.50),
+                  _palette.glowEdge.withValues(alpha: 0.20),
                   Colors.transparent,
                 ],
+                stops: const [0.0, 0.42, 0.86],
               ),
             ),
           ),
@@ -147,167 +278,176 @@ class _FinalJudgmentModePageState extends State<FinalJudgmentModePage> {
               child: Column(
                 children: [
                   const SizedBox(height: AppSpacing.sm),
-                  SizedBox(
-                    height: 92,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Image.asset(
-                              'assets/logo-+18.png',
-                              width: 160,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
+                  Row(
+                    children: [
+                      HeaderCircleButton(
+                        onTap: () {
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                        child: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 29),
+                      ),
+                      Expanded(
+                        child: Center(child: Image.asset(_palette.headerLogoAsset, width: 124, fit: BoxFit.contain)),
+                      ),
+                      HeaderCircleButton(
+                        onTap: _openSettings,
+                        child: Image.asset(
+                          'assets/menu-logo-icon-settings.png',
+                          width: 21,
+                          height: 21,
+                          fit: BoxFit.contain,
                         ),
-                        _FinalHeaderButton(
-                          accent: _modeAccent,
-                          onTap: () {
-                            if (Navigator.of(context).canPop()) {
-                              Navigator.of(context).pop();
-                            }
-                          },
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.only(bottom: 170),
+                      padding: const EdgeInsets.only(bottom: 26),
                       child: Column(
                         children: [
+                          const SizedBox(height: AppSpacing.md),
+                          Image.asset(_palette.judgmentHeroAsset, width: 182, fit: BoxFit.contain),
+                          const SizedBox(height: AppSpacing.sm),
+                          Container(
+                            height: 34,
+                            width: 110,
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(999),
+                              color: const Color(0xFF0E1725).withValues(alpha: 0.82),
+                              border: Border.all(color: _palette.modeAccent.withValues(alpha: 0.40)),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '¡Se acabó!',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: _palette.modeAccent,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 24 * 0.52,
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: AppSpacing.sm),
                           Text(
-                            'Juicio Final',
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  color: _modeAccent,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 48 * 0.68,
-                                ),
+                            'Juicio final',
+                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 52 * 0.70,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'La partida ha terminado. Aquí está el resultado.',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.80),
+                              fontWeight: FontWeight.w400,
+                              fontSize: 27 * 0.52,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xxl * 1.5),
+                          _OutcomeCardsSection(winner: winnerSummary, loser: loserSummary, palette: _palette),
+                          const SizedBox(height: AppSpacing.lg),
+                          _ScoreBoardContainer(
+                            palette: _palette,
+                            showPairRanking: _showPairRanking,
+                            rankedPlayers: rankedPlayers,
+                            pairSummaries: pairSummaries,
+                            winnerPairNumber: _winnerPairSummary?.pairNumber,
+                            loserPairNumber: _loserPairSummary?.pairNumber,
+                            scoreFor: _scoreFor,
+                            safeName: _safeName,
+                          ),
+                          const SizedBox(height: 20),
+                          Image.asset('assets/divider-premium.png', width: 210, fit: BoxFit.contain),
+                          const SizedBox(height: 14),
+                          Text(
+                            '¿Quién aplicará el castigo?',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.95),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 42 * 0.58,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            'Elige quién decidirá el reto para',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.78),
+                              fontWeight: FontWeight.w400,
+                              fontSize: 25 * 0.52,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Clasificación Final',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.88),
-                                  fontWeight: FontWeight.w400,
-                                  fontSize: 34 * 0.64,
-                                ),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Text(
-                            'Puntajes',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.96),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 18,
-                                ),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          if (_showPairRanking)
-                            _PairsRankingSection(
-                              pairSummaries: pairSummaries,
-                              scoreFor: _scoreFor,
-                              safeName: _safeName,
-                            )
-                          else
-                            _FinalRankingSection(
-                              rankedPlayers: rankedPlayers,
-                              safeName: _safeName,
+                            targetLabel,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: const Color(0xFFFF4641),
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                              fontSize: 27 * 0.52,
                             ),
-                          const SizedBox(height: 22),
-                          Text(
-                            _showPairRanking
-                                ? 'Los perdedores son:'
-                                : 'El perdedor es:',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  color: const Color.fromARGB(255, 227, 24, 24),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 20,
-                                ),
                           ),
-                          const SizedBox(height: AppSpacing.sm),
-                          _LoserChip(label: loserLabel),
-                          const SizedBox(height: AppSpacing.lg),
-                          Text(
-                            'Quien decidira el castigo?',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  fontStyle: FontStyle.italic,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 20,
+                          const SizedBox(height: AppSpacing.md),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _PunishmentChoiceCard(
+                                  title: 'La Profecía',
+                                  prefixLabel: 'Reto de',
+                                  description: 'El reto que tenemos preparado para ti.',
+                                  iconAsset: _palette.prophecyChoiceAsset,
+                                  borderColor: _palette.modeAccent,
+                                  isSelected: _selectedDecision == _PunishmentDecision.prophecy,
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedDecision = _PunishmentDecision.prophecy;
+                                    });
+                                  },
                                 ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: _PunishmentChoiceCard(
+                                  title: 'El grupo',
+                                  prefixLabel: 'Elige el reto del',
+                                  description: 'El reto que el grupo decida, no hay límites...',
+                                  iconAsset: 'assets/logo-icon-group-judgment-final.png',
+                                  borderColor: const Color(0xFFE8B23C),
+                                  isSelected: _selectedDecision == _PunishmentDecision.group,
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedDecision = _PunishmentDecision.group;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: AppSpacing.md),
                           App3dPillButton(
-                            label: 'Reto de la profecía',
-                            color: const Color.fromARGB(255, 191, 191, 192),
-                            gradientColors: const [
-                              Color(0xFFF7F8FA),
-                              Color(0xFFE4E7EE),
-                            ],
-                            height: 62,
-                            depth: 4.4,
-                            borderRadius: 16,
-                            textStyle: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  color: const Color(0xFF4D586D),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 32 * 0.58,
-                                ),
-                            onTap:
-                                widget.onProphecyChallengeTap ??
-                                () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) =>
-                                          FinalProphecyChallengePage(
-                                            submission: widget.submission,
-                                            punishedLabel: loserLabel,
-                                          ),
-                                    ),
-                                  );
-                                },
+                            label: 'Ir al castigo',
+                            color: ctaGradient.first,
+                            gradientColors: ctaGradient,
+                            height: 60,
+                            depth: 4,
+                            borderRadius: 999,
+                            textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: ctaEnabled ? Colors.white : Colors.white.withValues(alpha: 0.38),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 34 * 0.56,
+                            ),
+                            onTap: ctaEnabled ? () => _openPunishmentPage(loserLabel) : null,
                           ),
                           const SizedBox(height: AppSpacing.sm),
-                          App3dPillButton(
-                            label: 'El grupo',
-                            color: widget.submission.mode.isFriends
-                                ? const Color.fromARGB(255, 41, 169, 255)
-                                : const Color(0xFFF574B9),
-                            gradientColors: widget.submission.mode.isFriends
-                                ? const [
-                                    Color.fromARGB(255, 50, 168, 247),
-                                    Color.fromARGB(255, 32, 114, 229),
-                                  ]
-                                : const [Color(0xFFF574B9), Color(0xFFD93D88)],
-                            height: 62,
-                            depth: 4.4,
-                            borderRadius: 16,
-                            textStyle: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 32 * 0.58,
-                                ),
-                            onTap:
-                                widget.onGroupDecisionTap ??
-                                () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => FinalGroupChallengePage(
-                                        submission: widget.submission,
-                                        punishedLabel: loserLabel,
-                                      ),
-                                    ),
-                                  );
-                                },
+                          Text(
+                            'Debes seleccionar quien aplicará el castigo',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.54), fontSize: 12),
                           ),
                         ],
                       ),
@@ -323,11 +463,399 @@ class _FinalJudgmentModePageState extends State<FinalJudgmentModePage> {
   }
 }
 
-class _FinalRankingSection extends StatelessWidget {
-  const _FinalRankingSection({
+class _OutcomeCardsSection extends StatelessWidget {
+  const _OutcomeCardsSection({required this.winner, required this.loser, required this.palette});
+
+  final _OutcomeSummary winner;
+  final _OutcomeSummary loser;
+  final _ModePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final spacing = AppSpacing.sm;
+        final width = (constraints.maxWidth - spacing) / 2;
+        return Row(
+          children: [
+            _OutcomeCard(
+              summary: winner,
+              isWinner: true,
+              width: width,
+              borderColor: const Color(0xFFF5D359),
+              baseTopColor: const Color(0xFF2E2A13),
+              baseBottomColor: const Color(0xFF0D0A11),
+              palette: palette,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            _OutcomeCard(
+              summary: loser,
+              isWinner: false,
+              width: width,
+              borderColor: const Color(0xFFE53D37),
+              baseTopColor: const Color(0xFF2C1515),
+              baseBottomColor: const Color(0xFF0F090B),
+              palette: palette,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _OutcomeCard extends StatelessWidget {
+  const _OutcomeCard({
+    required this.summary,
+    required this.isWinner,
+    required this.width,
+    required this.borderColor,
+    required this.baseTopColor,
+    required this.baseBottomColor,
+    required this.palette,
+  });
+
+  final _OutcomeSummary summary;
+  final bool isWinner;
+  final double width;
+  final Color borderColor;
+  final Color baseTopColor;
+  final Color baseBottomColor;
+  final _ModePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    var frameHeight = isWinner ? 124.0 : 112.0;
+    var frameWidth = isWinner ? (width * 1.10) : width * 0.90;
+    return SizedBox(
+      width: frameWidth,
+      height: frameHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          VerticalLevelCardFrame(
+            width: frameWidth,
+            borderColor: borderColor,
+            baseTopColor: baseTopColor,
+            baseBottomColor: baseBottomColor,
+            bottomTintStrong: borderColor.withValues(alpha: 0.23),
+            bottomTintSoft: borderColor.withValues(alpha: 0.08),
+            topLineColor: borderColor,
+            topShadowStrongAlpha: 0.26,
+            topShadowSoftAlpha: 0.12,
+            borderRadius: 17,
+            contentPadding: const EdgeInsets.fromLTRB(10, 20, 10, 9),
+            onTap: () {},
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _OutcomeAvatarStack(
+                      primaryAsset: summary.primaryAvatarAssetPath,
+                      secondaryAsset: summary.secondaryAvatarAssetPath,
+                      borderColor: borderColor,
+                      isWinner: isWinner,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        summary.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.96),
+                          fontWeight: FontWeight.w700,
+                          fontSize: isWinner ? 17 : 14,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Column(
+                      children: [
+                        Text(
+                          '${summary.score}',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: isWinner ? const Color(0xFFF6D35A) : const Color(0xFFFF4C42),
+                            fontWeight: FontWeight.w700,
+                            fontSize: isWinner ? 17 : 15,
+                          ),
+                        ),
+                        Text(
+                          'Puntos',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.78),
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 11),
+                Container(
+                  height: 26,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: Colors.black.withValues(alpha: 0.26),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    summary.detail,
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.70),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: -14,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _OutcomeRoleChip(
+                label: summary.roleLabel,
+                accent: isWinner ? const Color(0xFFF5D359) : const Color(0xFFE53D37),
+                showCrown: isWinner,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OutcomeRoleChip extends StatelessWidget {
+  const _OutcomeRoleChip({required this.label, required this.accent, this.showCrown = false});
+
+  final String label;
+  final Color accent;
+  final bool showCrown;
+
+  @override
+  Widget build(BuildContext context) {
+    final topColor = Color.lerp(accent, const Color(0xFF315B7E), 0.72)!;
+    final roleTextColor = showCrown ? const Color(0xFFF6D35A) : const Color(0xFFFFD9D9);
+
+    return SizedBox(
+      height: showCrown ? 30 : 22,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            height: 22,
+            width: 100,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [topColor.withValues(alpha: 0.94), const Color(0xFF14263A).withValues(alpha: 0.94)],
+              ),
+              border: Border.all(color: accent.withValues(alpha: 0.78), width: 1.0),
+              boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.30), blurRadius: 14, spreadRadius: 0.4)],
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: roleTextColor,
+                fontWeight: FontWeight.w700,
+                fontSize: showCrown ? 14 : 12,
+              ),
+            ),
+          ),
+          if (showCrown)
+            Positioned(
+              top: -14,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Image.asset('assets/logo-icon-premium-corona.png', width: 22, height: 22, fit: BoxFit.contain),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OutcomeAvatarStack extends StatelessWidget {
+  const _OutcomeAvatarStack({
+    required this.primaryAsset,
+    required this.secondaryAsset,
+    required this.borderColor,
+    required this.isWinner,
+  });
+
+  final String? primaryAsset;
+  final String? secondaryAsset;
+  final Color borderColor;
+  final bool isWinner;
+
+  @override
+  Widget build(BuildContext context) {
+    if (primaryAsset == null) {
+      return Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: borderColor, width: 1.5),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: secondaryAsset == null ? 34 : 52,
+      height: isWinner ? 34 : 30,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          _AvatarCircle(assetPath: primaryAsset!, borderColor: borderColor, size: isWinner ? 34 : 30),
+          if (secondaryAsset != null)
+            Positioned(
+              left: 18,
+              child: _AvatarCircle(
+                assetPath: secondaryAsset!,
+                borderColor: borderColor.withValues(alpha: 0.72),
+                size: isWinner ? 34 : 30,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AvatarCircle extends StatelessWidget {
+  const _AvatarCircle({required this.assetPath, required this.borderColor, this.size = 34});
+
+  final String assetPath;
+  final Color borderColor;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: borderColor, width: 1.5),
+      ),
+      child: ClipOval(child: Image.asset(assetPath, fit: BoxFit.cover)),
+    );
+  }
+}
+
+class _ScoreBoardContainer extends StatelessWidget {
+  const _ScoreBoardContainer({
+    required this.palette,
+    required this.showPairRanking,
     required this.rankedPlayers,
+    required this.pairSummaries,
+    required this.winnerPairNumber,
+    required this.loserPairNumber,
+    required this.scoreFor,
     required this.safeName,
   });
+
+  final _ModePalette palette;
+  final bool showPairRanking;
+  final List<_RankedPlayer> rankedPlayers;
+  final List<_PairScoreSummary> pairSummaries;
+  final int? winnerPairNumber;
+  final int? loserPairNumber;
+  final int Function(int playerId) scoreFor;
+  final String Function(PlayerConfig player) safeName;
+
+  double _tableTitleHeight(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    return 20 * scale;
+  }
+
+  double _pairCardHeightFor(BuildContext context, int playerCount) {
+    final safeCount = playerCount <= 0 ? 1 : playerCount;
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final pairTitleHeight = 18 * scale;
+    return pairTitleHeight + 92 + (50 * safeCount);
+  }
+
+  double _containerHeight(BuildContext context) {
+    final verticalPadding = AppSpacing.lg * 2.5;
+    final titleBlockHeight = _tableTitleHeight(context) + AppSpacing.md;
+    if (showPairRanking) {
+      final cardsHeight = pairSummaries.fold<double>(
+        0,
+        (sum, pair) => sum + _pairCardHeightFor(context, pair.players.length),
+      );
+      final cardsSpacing = pairSummaries.length <= 1 ? 0 : (pairSummaries.length - 1) * AppSpacing.md;
+      return verticalPadding + titleBlockHeight + cardsHeight + cardsSpacing;
+    }
+
+    final rowsCount = rankedPlayers.isEmpty ? 1 : rankedPlayers.length;
+    final rowsHeight = (rowsCount * 66) + ((rowsCount - 1) * AppSpacing.sm);
+    return verticalPadding + titleBlockHeight + rowsHeight;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _containerHeight(context),
+      child: PremiumGlassSurface(
+        borderRadius: BorderRadius.circular(28),
+        gradientColors: const [Color(0x4C212839), Color(0xA50A0E18)],
+        borderColor: palette.modeAccent.withValues(alpha: 0.18),
+        innerBorderColor: Colors.white.withValues(alpha: 0.06),
+        topHighlightOpacity: 0.14,
+        bottomShadeOpacity: 0.24,
+        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Tabla de puntajes',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Colors.white.withValues(alpha: 0.94),
+                fontWeight: FontWeight.w600,
+                fontSize: 37 * 0.53,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            if (showPairRanking)
+              _PairRankingList(
+                pairSummaries: pairSummaries,
+                winnerPairNumber: winnerPairNumber,
+                loserPairNumber: loserPairNumber,
+                scoreFor: scoreFor,
+                safeName: safeName,
+              )
+            else
+              _PlayerRankingRows(rankedPlayers: rankedPlayers, safeName: safeName),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlayerRankingRows extends StatelessWidget {
+  const _PlayerRankingRows({required this.rankedPlayers, required this.safeName});
 
   final List<_RankedPlayer> rankedPlayers;
   final String Function(PlayerConfig player) safeName;
@@ -337,160 +865,121 @@ class _FinalRankingSection extends StatelessWidget {
     return Column(
       children: [
         for (var index = 0; index < rankedPlayers.length; index++) ...[
-          _FinalScoreRow(
+          _PlayerRankingRow(
             rank: index + 1,
             player: rankedPlayers[index].player,
             score: rankedPlayers[index].score,
-            subtitle: index == 0
-                ? 'Ganador'
-                : (index == rankedPlayers.length - 1 ? 'Perdedor' : null),
-            safeName: safeName,
-            highlightedWinner: index == 0,
-            highlightedLoser: index == rankedPlayers.length - 1,
+            name: safeName(rankedPlayers[index].player),
+            isWinner: index == 0,
+            isLoser: index == rankedPlayers.length - 1,
           ),
-          if (index != rankedPlayers.length - 1)
-            const SizedBox(height: AppSpacing.sm),
+          if (index != rankedPlayers.length - 1) const SizedBox(height: AppSpacing.sm),
         ],
       ],
     );
   }
 }
 
-class _FinalScoreRow extends StatelessWidget {
-  const _FinalScoreRow({
+class _PlayerRankingRow extends StatelessWidget {
+  const _PlayerRankingRow({
     required this.rank,
     required this.player,
     required this.score,
-    required this.safeName,
-    this.subtitle,
-    this.highlightedWinner = false,
-    this.highlightedLoser = false,
+    required this.name,
+    required this.isWinner,
+    required this.isLoser,
   });
 
   final int rank;
   final PlayerConfig player;
   final int score;
-  final String? subtitle;
-  final String Function(PlayerConfig player) safeName;
-  final bool highlightedWinner;
-  final bool highlightedLoser;
+  final String name;
+  final bool isWinner;
+  final bool isLoser;
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = highlightedWinner
+    final borderColor = isWinner
         ? const Color(0xFFF5D359)
-        : (highlightedLoser
-              ? const Color(0xFFFF4E4A)
-              : Colors.white.withValues(alpha: 0.35));
+        : (isLoser ? const Color(0xFFFF4E4A) : Colors.white.withValues(alpha: 0.28));
 
-    final backgroundGradient = highlightedLoser
-        ? [
-            const Color(0xFF5A2837).withValues(alpha: 0.88),
-            const Color(0xFF2D1F34).withValues(alpha: 0.86),
-          ]
-        : [
-            const Color(0xFF3A5D85).withValues(alpha: 0.86),
-            const Color(0xFF23374F).withValues(alpha: 0.84),
-          ];
-
-    final badgeColor = highlightedWinner
+    final rankColor = isWinner
         ? const Color(0xFFF8BE2A)
-        : (highlightedLoser
-              ? const Color(0xFFE63F35)
-              : const Color(0xFF0787FF));
+        : (isLoser ? const Color(0xFFE63F35) : const Color(0xFF4AA5FF));
 
-    final pointsGradient = highlightedWinner
+    final pointsGradient = isWinner
         ? AppColors.winnerGradientTopBottom
-        : (highlightedLoser
-              ? const [Color(0xFFF24B45), Color(0xFFD7382C)]
-              : const [Color(0xFFFFFFFF), Color(0xFFF2F3F6)]);
+        : (isLoser ? const [Color(0xFFF14A40), Color(0xFFCC2F28)] : const [Color(0xFFFFFFFF), Color(0xFFF2F3F6)]);
 
-    final pointsTextColor = highlightedWinner
-        ? const Color(0xFF946A00)
-        : (highlightedLoser ? Colors.white : const Color(0xFF4D586D));
+    final scoreTextColor = isWinner ? const Color(0xFF8A6700) : (isLoser ? Colors.white : const Color(0xFF4D586D));
 
     return PremiumGlassSurface(
-      height: 78,
-      borderRadius: BorderRadius.circular(26),
-      gradientColors: backgroundGradient,
+      height: 66,
+      borderRadius: BorderRadius.circular(999),
+      gradientColors: const [Color(0x7A2A3144), Color(0x66222937)],
       borderColor: borderColor,
-      innerBorderColor: borderColor.withValues(alpha: 0.28),
-      topHighlightOpacity: highlightedWinner ? 0.2 : 0.12,
-      bottomShadeOpacity: 0.14,
+      innerBorderColor: borderColor.withValues(alpha: isWinner || isLoser ? 1 : 0.18),
+      topHighlightOpacity: 0.12,
+      bottomShadeOpacity: 0.16,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: rankColor),
             alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: highlightedWinner ? null : badgeColor,
-              gradient: highlightedWinner
-                  ? LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: AppColors.winnerGradientTopBottom,
-                    )
-                  : null,
-            ),
             child: Text(
               '$rank',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 20 * 0.70),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(
-                  safeName(player),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.96),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 34 * 0.56,
-                  ),
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: ClipOval(child: Image.asset(player.avatarAssetPath, fit: BoxFit.cover)),
                 ),
-                if (subtitle != null)
-                  Text(
-                    subtitle!,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.88),
-                      fontWeight: FontWeight.w500,
-                      fontSize: 28 * 0.52,
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.96),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 33 * 0.52,
                     ),
                   ),
+                ),
               ],
             ),
           ),
-          _ScorePill(
-            score: score,
-            textColor: pointsTextColor,
-            gradient: pointsGradient,
-          ),
+          _ScoreTokenPill(score: score, gradient: pointsGradient, textColor: scoreTextColor),
         ],
       ),
     );
   }
 }
 
-class _PairsRankingSection extends StatelessWidget {
-  const _PairsRankingSection({
+class _PairRankingList extends StatelessWidget {
+  const _PairRankingList({
     required this.pairSummaries,
+    required this.winnerPairNumber,
+    required this.loserPairNumber,
     required this.scoreFor,
     required this.safeName,
   });
 
   final List<_PairScoreSummary> pairSummaries;
+  final int? winnerPairNumber;
+  final int? loserPairNumber;
   final int Function(int playerId) scoreFor;
   final String Function(PlayerConfig player) safeName;
 
@@ -499,187 +988,179 @@ class _PairsRankingSection extends StatelessWidget {
     return Column(
       children: [
         for (var index = 0; index < pairSummaries.length; index++) ...[
-          _PairRankCard(
+          _PairRankingCard(
             pair: pairSummaries[index],
-            isLoserPair: index == 0,
-            isWinnerPair: index == pairSummaries.length - 1,
             scoreFor: scoreFor,
             safeName: safeName,
+            isWinnerPair: pairSummaries[index].pairNumber == winnerPairNumber,
+            isLoserPair: pairSummaries[index].pairNumber == loserPairNumber,
           ),
-          if (index != pairSummaries.length - 1)
-            const SizedBox(height: AppSpacing.md),
+          if (index != pairSummaries.length - 1) const SizedBox(height: AppSpacing.md),
         ],
       ],
     );
   }
 }
 
-class _PairRankCard extends StatelessWidget {
-  const _PairRankCard({
+class _PairRankingCard extends StatelessWidget {
+  const _PairRankingCard({
     required this.pair,
-    required this.isLoserPair,
-    required this.isWinnerPair,
     required this.scoreFor,
     required this.safeName,
+    required this.isWinnerPair,
+    required this.isLoserPair,
   });
 
   final _PairScoreSummary pair;
-  final bool isLoserPair;
-  final bool isWinnerPair;
   final int Function(int playerId) scoreFor;
   final String Function(PlayerConfig player) safeName;
+  final bool isWinnerPair;
+  final bool isLoserPair;
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = isLoserPair
-        ? Color(0xFFFF5A4C)
-        : const Color.fromARGB(0, 243, 229, 103);
-
-    final title = isLoserPair
-        ? 'Pareja ${pair.pairNumber} perdedores'
-        : (isWinnerPair
-              ? 'Pareja ${pair.pairNumber} Ganadores'
-              : 'Pareja ${pair.pairNumber}');
-
-    final titleHeight = 15 * 1.2 * MediaQuery.textScalerOf(context).scale(1);
     final playersCount = pair.players.isEmpty ? 1 : pair.players.length;
-    final playersBlockHeight =
-        (46 * playersCount) + (AppSpacing.sm * (playersCount - 1));
-    final cardHeight =
-        (AppSpacing.sm * 7.7) +
-        titleHeight +
-        AppSpacing.sm +
-        playersBlockHeight +
-        AppSpacing.sm +
-        44;
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final pairTitleHeight = 18 * scale;
+    final cardHeight = pairTitleHeight + 92 + (50 * playersCount);
+    final colorWinner = Color(0xFF84FF8D);
+    final colorLoser = Color(0xFFF14A40);
+    final borderColor = isWinnerPair ? colorWinner : colorLoser;
 
-    return SizedBox(
-      width: double.infinity,
+    final totalGradient = [borderColor.withValues(alpha: 0.14), borderColor.withValues(alpha: 0.14)];
+
+    return PremiumGlassSurface(
       height: cardHeight,
-      child: PremiumGlassSurface(
-        borderRadius: BorderRadius.circular(18),
-        gradientColors: [
-          const Color.fromARGB(0, 111, 42, 61),
-          const Color.fromARGB(0, 111, 42, 61),
-        ],
-        borderColor: borderColor,
-        topHighlightOpacity: 0.2,
-        bottomShadeOpacity: 0.18,
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.sm,
-          AppSpacing.sm,
-          AppSpacing.sm,
-          AppSpacing.sm,
-        ),
-        child: Column(
-          children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.95),
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-              ),
+      borderRadius: BorderRadius.circular(18),
+      gradientColors: const [Color(0x7A2A3144), Color(0x61222937)],
+      borderColor: Colors.white.withValues(alpha: 0.28),
+      innerBorderColor: Colors.white.withValues(alpha: 0.18),
+      topHighlightOpacity: 0.12,
+      bottomShadeOpacity: 0.16,
+      padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, AppSpacing.sm),
+      child: Column(
+        children: [
+          Text(
+            'Pareja ${pair.pairNumber}',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.95),
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
             ),
-            const SizedBox(height: AppSpacing.sm),
-            for (var index = 0; index < pair.players.length; index++) ...[
-              _PairPlayerRow(
-                player: pair.players[index],
-                score: scoreFor(pair.players[index].id),
-                safeName: safeName,
-                isWinnerPair: isWinnerPair,
-              ),
-              if (index != pair.players.length - 1)
-                const SizedBox(height: AppSpacing.sm),
-            ],
-            const SizedBox(height: AppSpacing.sm),
-            _PairTotalPill(pairScore: pair.pairScore, isLoserPair: isLoserPair),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          for (var index = 0; index < pair.players.length; index++) ...[
+            _PairPlayerScoreRow(
+              rank: pair.players[index].id,
+              player: pair.players[index],
+              name: safeName(pair.players[index]),
+              score: scoreFor(pair.players[index].id),
+            ),
+            if (index != pair.players.length - 1) const SizedBox(height: AppSpacing.xs),
           ],
-        ),
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: totalGradient),
+              border: Border.all(color: borderColor.withValues(alpha: 0.20)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Puntaje de pareja',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: borderColor.withValues(alpha: 0.88),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${pair.pairScore}',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: borderColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _PairPlayerRow extends StatelessWidget {
-  const _PairPlayerRow({
-    required this.player,
-    required this.score,
-    required this.safeName,
-    required this.isWinnerPair,
-  });
+class _PairPlayerScoreRow extends StatelessWidget {
+  const _PairPlayerScoreRow({required this.rank, required this.player, required this.name, required this.score});
 
+  final int rank;
   final PlayerConfig player;
+  final String name;
   final int score;
-  final String Function(PlayerConfig player) safeName;
-  final bool isWinnerPair;
 
   @override
   Widget build(BuildContext context) {
-    final scoreGradient = isWinnerPair
-        ? AppColors.winnerGradientTopBottom
-        : const [Color(0xFFFFFFFF), Color(0xFFF2F3F6)];
-
-    final scoreTextColor = isWinnerPair
-        ? const Color(0xFF8A6700)
-        : const Color(0xFF4D586D);
-
     return PremiumGlassSurface(
-      height: 72,
-      borderRadius: BorderRadius.circular(26),
-      gradientColors: [Colors.transparent, Colors.transparent],
+      height: 42,
+      borderRadius: BorderRadius.circular(999),
+      gradientColors: const [Color(0x60353D4E), Color(0x532A3041)],
       borderColor: Colors.white.withValues(alpha: 0.18),
-      innerBorderColor: Colors.white.withValues(alpha: 0.04),
-      topHighlightOpacity: 0.12,
-      bottomShadeOpacity: 0.16,
+      innerBorderColor: Colors.white.withValues(alpha: 0.10),
+      topHighlightOpacity: 0.08,
+      bottomShadeOpacity: 0.14,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 24,
+            height: 24,
             alignment: Alignment.center,
+            decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFE3477D)),
+            child: Text(
+              '$rank',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 24,
+            height: 24,
+            padding: const EdgeInsets.all(1),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isWinnerPair ? null : const Color(0xFFE94494),
-              gradient: isWinnerPair
-                  ? LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: AppColors.winnerGradientTopBottom,
-                    )
-                  : null,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.42)),
             ),
-            child: Text(
-              '${player.id}',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 17,
-              ),
-            ),
+            child: ClipOval(child: Image.asset(player.avatarAssetPath, fit: BoxFit.cover)),
           ),
-          const SizedBox(width: AppSpacing.sm),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
-              safeName(player),
+              name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.95),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.94),
                 fontWeight: FontWeight.w500,
-                fontSize: 16,
+                fontSize: 14,
               ),
             ),
           ),
-          _ScorePill(
+          _ScoreTokenPill(
             score: score,
-            textColor: scoreTextColor,
-            gradient: scoreGradient,
-            height: 34,
-            iconSize: 18,
-            horizontalPadding: 12,
-            fontSize: 26 * 0.56,
+            gradient: const [Color(0xFFFFFFFF), Color(0xFFF2F3F6)],
+            textColor: const Color(0xFF4D586D),
+            height: 30,
+            iconSize: 14,
+            horizontalPadding: 10,
+            fontSize: 14,
           ),
         ],
       ),
@@ -687,117 +1168,20 @@ class _PairPlayerRow extends StatelessWidget {
   }
 }
 
-class _PairTotalPill extends StatelessWidget {
-  const _PairTotalPill({required this.pairScore, required this.isLoserPair});
-
-  final int pairScore;
-  final bool isLoserPair;
-
-  @override
-  Widget build(BuildContext context) {
-    final gradient = isLoserPair
-        ? const [
-            Color.fromARGB(255, 241, 63, 47),
-            Color.fromARGB(255, 239, 30, 19),
-          ]
-        : AppColors.winnerGradientTopBottom;
-    final textColor = Colors.white;
-
-    return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: gradient,
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Puntaje de pareja',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: textColor.withValues(alpha: 0.98),
-                fontWeight: FontWeight.w500,
-                fontSize: 16,
-              ),
-            ),
-          ),
-          Text(
-            pairScore >= 0 ? '+$pairScore' : '$pairScore',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: textColor,
-              fontWeight: FontWeight.w700,
-              fontSize: 30 * 0.58,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Image.asset(
-            'assets/logo-icon-start-points.png',
-            width: 20,
-            height: 20,
-            fit: BoxFit.contain,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoserChip extends StatelessWidget {
-  const _LoserChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 300),
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 68),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color.fromARGB(255, 245, 59, 53),
-            Color.fromARGB(255, 234, 37, 26),
-          ],
-        ),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: 24,
-        ),
-      ),
-    );
-  }
-}
-
-class _ScorePill extends StatelessWidget {
-  const _ScorePill({
+class _ScoreTokenPill extends StatelessWidget {
+  const _ScoreTokenPill({
     required this.score,
-    required this.textColor,
     required this.gradient,
-    this.height = 42,
-    this.iconSize = 22,
-    this.horizontalPadding = 14,
-    this.fontSize = 17,
+    required this.textColor,
+    this.height = 36,
+    this.iconSize = 18,
+    this.horizontalPadding = 12,
+    this.fontSize = 18,
   });
 
   final int score;
-  final Color textColor;
   final List<Color> gradient;
+  final Color textColor;
   final double height;
   final double iconSize;
   final double horizontalPadding;
@@ -810,80 +1194,191 @@ class _ScorePill extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: gradient,
-        ),
+        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: gradient),
       ),
       child: Row(
         children: [
           Text(
-            score >= 0 ? '+$score' : '$score',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: textColor,
-              fontWeight: FontWeight.w700,
-              fontSize: fontSize,
-            ),
+            '$score',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: textColor, fontWeight: FontWeight.w700, fontSize: fontSize),
           ),
-          const SizedBox(width: 8),
-          Image.asset(
-            'assets/logo-icon-start-points.png',
-            width: iconSize,
-            height: iconSize,
-            fit: BoxFit.contain,
-          ),
+          const SizedBox(width: 6),
+          Image.asset('assets/logo-icon-start-points.png', width: iconSize, height: iconSize, fit: BoxFit.contain),
         ],
       ),
     );
   }
 }
 
-class _FinalHeaderButton extends StatelessWidget {
-  const _FinalHeaderButton({required this.accent, required this.onTap});
+class _PunishmentChoiceCard extends StatelessWidget {
+  const _PunishmentChoiceCard({
+    required this.title,
+    required this.prefixLabel,
+    required this.description,
+    required this.iconAsset,
+    required this.borderColor,
+    required this.isSelected,
+    required this.onTap,
+  });
 
-  final Color accent;
+  final String title;
+  final String prefixLabel;
+  final String description;
+  final String iconAsset;
+  final Color borderColor;
+  final bool isSelected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final bright = Color.lerp(accent, Colors.white, 0.35)!;
-    final dark = Color.lerp(accent, const Color(0xFF120B2D), 0.78)!;
+    final iconSize = isSelected ? 42.0 : 38.0;
 
-    return SizedBox(
-      width: 52,
-      height: 84,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(30),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  bright.withValues(alpha: 0.18),
-                  dark.withValues(alpha: 0.5),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: PremiumGlassSurface(
+          height: isSelected ? 170 : 160,
+          borderRadius: BorderRadius.circular(16),
+          gradientColors: const [Color(0x742A3144), Color(0x5B202536)],
+          borderColor: borderColor.withValues(alpha: isSelected ? 0.88 : 0.42),
+          innerBorderColor: borderColor.withValues(alpha: isSelected ? 0.24 : 0.10),
+          topHighlightOpacity: isSelected ? 0.20 : 0.12,
+          topHighlightColor: borderColor,
+          bottomShadeOpacity: 0.18,
+          padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, AppSpacing.xs),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  const SizedBox(width: AppSpacing.xxl),
+                  const Spacer(),
+
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeOut,
+                    width: iconSize,
+                    height: iconSize,
+                    child: Image.asset(iconAsset, fit: BoxFit.contain),
+                  ),
+                  const Spacer(),
+                  if (isSelected)
+                    Image.asset(
+                      'assets/logo-icon-checked.png',
+                      width: 18,
+                      height: 18,
+                      fit: BoxFit.contain,
+                      color: Colors.white.withValues(alpha: 0.97),
+                    )
+                  else
+                    Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.78), width: 2.2),
+                      ),
+                    ),
                 ],
               ),
-              border: Border.all(
-                color: accent.withValues(alpha: 0.54),
-                width: 1,
+              const Spacer(),
+              Text(
+                prefixLabel,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.68),
+                  fontWeight: FontWeight.w400,
+                  fontSize: 10,
+                ),
               ),
-            ),
-            child: Center(
-              child: Icon(
-                Icons.chevron_left_rounded,
-                size: 32,
-                color: accent.withValues(alpha: 0.95),
+              const SizedBox(height: 2),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.96),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 35 * 0.52,
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              Container(
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(9),
+                  color: Colors.black.withValues(alpha: 0.22),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+                ),
+                child: Text(
+                  description,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.67),
+                    fontWeight: FontWeight.w400,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ModePalette {
+  const _ModePalette({
+    required this.backgroundAsset,
+    required this.headerLogoAsset,
+    required this.judgmentHeroAsset,
+    required this.prophecyChoiceAsset,
+    required this.modeAccent,
+    required this.glowCenter,
+    required this.glowEdge,
+    required this.enabledButtonGradient,
+  });
+
+  final String backgroundAsset;
+  final String headerLogoAsset;
+  final String judgmentHeroAsset;
+  final String prophecyChoiceAsset;
+  final Color modeAccent;
+  final Color glowCenter;
+  final Color glowEdge;
+  final List<Color> enabledButtonGradient;
+
+  factory _ModePalette.fromMode(GameMode mode) {
+    if (mode.isFriends) {
+      return const _ModePalette(
+        backgroundAsset: 'assets/background-setup-friends-mode.png',
+        headerLogoAsset: 'assets/logo-simple-blue.png',
+        judgmentHeroAsset: 'assets/logo-icon-judgment-final-mode-friends.png',
+        prophecyChoiceAsset: 'assets/logo-icon-prophecy-judgment-final-mode-friends.png',
+        modeAccent: Color(0xFF39A8FF),
+        glowCenter: Color(0xFF214E84),
+        glowEdge: Color(0xFF113056),
+        enabledButtonGradient: [Color(0xFF48B3FF), Color(0xFF1D5DDA)],
+      );
+    }
+
+    return const _ModePalette(
+      backgroundAsset: 'assets/background-setup-couple-mode.png',
+      headerLogoAsset: 'assets/logo-simple-signature.png',
+      judgmentHeroAsset: 'assets/logo-icon-judgment-final-mode-couple.png',
+      prophecyChoiceAsset: 'assets/logo-icon-prophecy-judgment-final-mode-couple.png',
+      modeAccent: Color(0xFFE95AA5),
+      glowCenter: Color(0xFF5A1F55),
+      glowEdge: Color(0xFF31153C),
+      enabledButtonGradient: [Color(0xFFF574B9), Color(0xFFD93D88)],
     );
   }
 }
@@ -896,13 +1391,34 @@ class _RankedPlayer {
 }
 
 class _PairScoreSummary {
-  const _PairScoreSummary({
-    required this.pairNumber,
-    required this.players,
-    required this.pairScore,
-  });
+  const _PairScoreSummary({required this.pairNumber, required this.players, required this.pairScore});
 
   final int pairNumber;
   final List<PlayerConfig> players;
   final int pairScore;
+}
+
+class _OutcomeSummary {
+  const _OutcomeSummary({
+    required this.roleLabel,
+    required this.name,
+    required this.score,
+    required this.detail,
+    required this.primaryAvatarAssetPath,
+    this.secondaryAvatarAssetPath,
+  });
+
+  const _OutcomeSummary.empty({required this.roleLabel})
+    : name = '---',
+      score = 0,
+      detail = 'Sin datos de partida',
+      primaryAvatarAssetPath = null,
+      secondaryAvatarAssetPath = null;
+
+  final String roleLabel;
+  final String name;
+  final int score;
+  final String detail;
+  final String? primaryAvatarAssetPath;
+  final String? secondaryAvatarAssetPath;
 }

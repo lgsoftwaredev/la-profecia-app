@@ -13,6 +13,7 @@ class RoundScoreSummaryCouplePage extends StatelessWidget {
     this.didComplete = true,
     this.endMatchOnNext = false,
     required this.onNextRoundTap,
+    required this.onFinishMatchTap,
     super.key,
   });
 
@@ -24,6 +25,7 @@ class RoundScoreSummaryCouplePage extends StatelessWidget {
   final bool didComplete;
   final bool endMatchOnNext;
   final VoidCallback onNextRoundTap;
+  final VoidCallback onFinishMatchTap;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +46,7 @@ class RoundScoreSummaryCouplePage extends StatelessWidget {
       pairCardBottomShadeOpacity: 0.16,
       pairCardInnerBorderAlpha: 0.04,
       onNextRoundTap: onNextRoundTap,
+      onFinishMatchTap: onFinishMatchTap,
     );
   }
 }

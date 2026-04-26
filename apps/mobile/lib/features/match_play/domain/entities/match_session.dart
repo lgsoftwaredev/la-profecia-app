@@ -1,4 +1,5 @@
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
+import 'active_match_effect.dart';
 import 'match_level.dart';
 import 'match_participant.dart';
 import 'match_turn.dart';
@@ -19,6 +20,7 @@ class MatchSession {
     required this.startedAt,
     required this.pendingTurn,
     this.allowedLevels = const <MatchLevel>[MatchLevel.cielo],
+    this.activeEffects = const <ActiveMatchEffect>[],
     this.remoteSessionId,
     this.remoteRoundId,
     this.remotePlayerIdsByParticipantId = const <int, String>{},
@@ -38,6 +40,7 @@ class MatchSession {
   final DateTime? endedAt;
   final MatchTurn? pendingTurn;
   final List<MatchLevel> allowedLevels;
+  final List<ActiveMatchEffect> activeEffects;
   final String? remoteSessionId;
   final String? remoteRoundId;
   final Map<int, String> remotePlayerIdsByParticipantId;
@@ -77,6 +80,7 @@ class MatchSession {
     DateTime? endedAt,
     MatchTurn? pendingTurn,
     List<MatchLevel>? allowedLevels,
+    List<ActiveMatchEffect>? activeEffects,
     String? remoteSessionId,
     String? remoteRoundId,
     Map<int, String>? remotePlayerIdsByParticipantId,
@@ -97,6 +101,7 @@ class MatchSession {
       endedAt: endedAt ?? this.endedAt,
       pendingTurn: clearPendingTurn ? null : (pendingTurn ?? this.pendingTurn),
       allowedLevels: allowedLevels ?? this.allowedLevels,
+      activeEffects: activeEffects ?? this.activeEffects,
       remoteSessionId: remoteSessionId ?? this.remoteSessionId,
       remoteRoundId: remoteRoundId ?? this.remoteRoundId,
       remotePlayerIdsByParticipantId:
@@ -118,6 +123,7 @@ class MatchSession {
     'endedAt': endedAt?.toIso8601String(),
     'pendingTurn': pendingTurn?.toJson(),
     'allowedLevels': allowedLevels.map((level) => level.name).toList(),
+    'activeEffects': activeEffects.map((effect) => effect.toJson()).toList(),
     'remoteSessionId': remoteSessionId,
     'remoteRoundId': remoteRoundId,
     'remotePlayerIdsByParticipantId': remotePlayerIdsByParticipantId.map(
@@ -150,6 +156,14 @@ class MatchSession {
       allowedLevels: ((json['allowedLevels'] as List<dynamic>?) ?? const [])
           .whereType<String>()
           .map(MatchLevel.values.byName)
+          .toList(growable: false),
+      activeEffects: ((json['activeEffects'] as List<dynamic>?) ?? const [])
+          .whereType<Map>()
+          .map(
+            (item) => ActiveMatchEffect.fromJson(
+              item.map((key, value) => MapEntry(key.toString(), value)),
+            ),
+          )
           .toList(growable: false),
       remoteSessionId: json['remoteSessionId'] as String?,
       remoteRoundId: json['remoteRoundId'] as String?,

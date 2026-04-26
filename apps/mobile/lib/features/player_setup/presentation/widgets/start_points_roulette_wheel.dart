@@ -11,6 +11,7 @@ class StartPointsRouletteWheel extends StatefulWidget {
     required this.availableThemes,
     required this.hasPremiumAccess,
     required this.isFriendsMode,
+    required this.onSpinStarted,
     required this.onThemeChanged,
     required this.onSpinCompleted,
     required this.modeAccent,
@@ -21,6 +22,7 @@ class StartPointsRouletteWheel extends StatefulWidget {
   final List<GameStyleTheme> availableThemes;
   final bool hasPremiumAccess;
   final bool isFriendsMode;
+  final VoidCallback onSpinStarted;
   final ValueChanged<GameStyleTheme> onThemeChanged;
   final ValueChanged<GameStyleTheme> onSpinCompleted;
   final Color modeAccent;
@@ -52,7 +54,7 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel>
   late final AnimationController _controller =
       AnimationController(
           vsync: this,
-          duration: const Duration(milliseconds: 2400),
+          duration: const Duration(milliseconds: 3400),
         )
         ..addListener(() => setState(() {}))
         ..addStatusListener(_handleStatus);
@@ -73,7 +75,7 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedTheme != widget.selectedTheme &&
         !_controller.isAnimating) {
-      _animateToTheme(widget.selectedTheme, extraTurns: 0, durationMs: 360);
+      _animateToTheme(widget.selectedTheme, extraTurns: 0, durationMs: 1000);
     }
   }
 
@@ -91,7 +93,11 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel>
     widget.onThemeChanged(_targetTheme);
     if (_shouldOpenNextPage) {
       _shouldOpenNextPage = false;
-      widget.onSpinCompleted(_targetTheme);
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (mounted) {
+          widget.onSpinCompleted(_targetTheme);
+        }
+      });
     }
   }
 
@@ -139,6 +145,7 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel>
     if (_controller.isAnimating) {
       return;
     }
+    widget.onSpinStarted();
     _shouldOpenNextPage = true;
     final candidates = widget.availableThemes.isEmpty
         ? const [GameStyleTheme.cielo]
@@ -147,7 +154,7 @@ class _StartPointsRouletteWheelState extends State<StartPointsRouletteWheel>
     _animateToTheme(
       nextTheme,
       extraTurns: 4 + _random.nextInt(3),
-      durationMs: 2200 + _random.nextInt(360),
+      durationMs: 4200 + _random.nextInt(360),
     );
   }
 
@@ -559,7 +566,12 @@ class _WheelSegmentsPainter extends CustomPainter {
         center.dy + (innerShadowRadius * math.sin(shadowAngle)),
       );
       final shadow = Paint()
-        ..color = const Color.fromARGB(255, 20, 20, 20).withValues(alpha: segmentShadowAlpha)
+        ..color = const Color.fromARGB(
+          255,
+          20,
+          20,
+          20,
+        ).withValues(alpha: segmentShadowAlpha)
         ..strokeWidth = 240
         ..strokeCap = StrokeCap.round
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 98);

@@ -16,6 +16,6 @@ extension MatchLevelX on MatchLevel {
     MatchLevel.cielo => 0,
     MatchLevel.tierra => 0,
     MatchLevel.infierno => 0,
-    MatchLevel.inframundo => GameRules.unlockInframundoAfterCompletedRounds,
+    MatchLevel.inframundo => 0//GameRules.unlockInframundoAfterCompletedRounds,
   };
 }

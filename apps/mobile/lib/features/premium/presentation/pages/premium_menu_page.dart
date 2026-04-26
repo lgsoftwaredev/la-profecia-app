@@ -386,11 +386,7 @@ class _PremiumBenefitsPanel extends StatelessWidget {
               Expanded(
                 child: _PlanSideCard(
                   title: 'Premium',
-                  titleIcon: Image.asset(
-                    'assets/logo-icon-premium-corona.png',
-                    width: 24,
-                    height: 24,
-                  ),
+                  titleIcon: Padding(padding: const EdgeInsets.only(left: 10), child: Image.asset('assets/logo-icon-premium-corona.png', width: 24, height: 24, fit: BoxFit.contain)),
                   items: const [
                     _SideItem(text: 'Acceso a todos los niveles.'),
                     _SideItem(text: 'Sin anuncios.'),
@@ -435,7 +431,7 @@ class _PlanSideCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.sm),
+      padding:   EdgeInsets.only(top: AppSpacing.sm, bottom: highlighted? 0: AppSpacing.sm, left: highlighted? 0: AppSpacing.sm, right: highlighted? 0: AppSpacing.sm),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         border: highlighted == false
@@ -511,8 +507,8 @@ class _MiniLabel extends StatelessWidget {
           icon ??
               Image.asset(
                 'assets/logo-icon-check-premium.png',
-                width: 18,
-                height: 18,
+                width: 24,
+                height: 24,
                 fit: BoxFit.contain,
               ),
           const SizedBox(width: 8),

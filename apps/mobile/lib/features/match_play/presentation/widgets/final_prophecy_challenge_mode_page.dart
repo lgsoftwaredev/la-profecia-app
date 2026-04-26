@@ -1,12 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
 import '../../../game_mode_selection/presentation/pages/home_page.dart';
-import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
 import '../../../player_setup/presentation/pages/player_setup_page.dart';
-import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
+import 'match_timer_chip.dart';
 
 class FinalProphecyChallengeModePage extends StatefulWidget {
   const FinalProphecyChallengeModePage({
@@ -25,39 +26,64 @@ class FinalProphecyChallengeModePage extends StatefulWidget {
   final VoidCallback? onBackToHomeTap;
 
   @override
-  State<FinalProphecyChallengeModePage> createState() =>
-      _FinalProphecyChallengeModePageState();
+  State<FinalProphecyChallengeModePage> createState() => _FinalProphecyChallengeModePageState();
 }
 
-class _FinalProphecyChallengeModePageState
-    extends State<FinalProphecyChallengeModePage> {
-  bool get _isFriendsMode => widget.submission.mode.isFriends;
+class _FinalProphecyChallengeModePageState extends State<FinalProphecyChallengeModePage> {
+  static const _initialTimerSeconds = 300;
+  static const _primaryButtonGradient = [Color(0xFFFA402B), Color(0xFFB71812)];
 
-  Color get _modeAccent =>
-      _isFriendsMode ? const Color(0xFF2A9DFF) : const Color(0xFFE94494);
-
-  String get _backgroundAsset => _isFriendsMode
-      ? 'assets/background-setup-friends-mode.png'
-      : 'assets/background-setup-couple-mode.png';
-
-  List<Color> get _modeButtonGradient => _isFriendsMode
-      ? const [Color(0xFF5FC0FF), Color(0xFF2E6FC9)]
-      : const [Color(0xFFF574B9), Color(0xFFD93D88)];
+  Timer? _timerTicker;
+  var _remainingTimerSeconds = _initialTimerSeconds;
 
   void _defaultPlayAgain() {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(
-        builder: (_) => PlayerSetupPage(mode: widget.submission.mode),
-      ),
+      MaterialPageRoute<void>(builder: (_) => PlayerSetupPage(mode: widget.submission.mode)),
       (route) => false,
     );
   }
 
   void _defaultBackToHome() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const HomePage()),
-      (route) => false,
-    );
+    Navigator.of(
+      context,
+    ).pushAndRemoveUntil(MaterialPageRoute<void>(builder: (_) => const HomePage()), (route) => false);
+  }
+
+  void _onTimerTap() {
+    if (_remainingTimerSeconds <= 0) {
+      return;
+    }
+    if (_timerTicker != null) {
+      _timerTicker?.cancel();
+      _timerTicker = null;
+      setState(() {});
+      return;
+    }
+
+    _timerTicker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_remainingTimerSeconds <= 1) {
+        timer.cancel();
+        _timerTicker = null;
+        setState(() {
+          _remainingTimerSeconds = 0;
+        });
+        return;
+      }
+      setState(() {
+        _remainingTimerSeconds -= 1;
+      });
+    });
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _timerTicker?.cancel();
+    super.dispose();
   }
 
   @override
@@ -67,247 +93,113 @@ class _FinalProphecyChallengeModePageState
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(_backgroundAsset, fit: BoxFit.cover),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0x66050316),
-                  const Color(0xFF06020F).withValues(alpha: 0.96),
-                ],
-              ),
-            ),
-          ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0, 0.05),
-                radius: 0.9,
-                colors: [
-                  (_isFriendsMode
-                          ? const Color(0xFF2562B8)
-                          : const Color(0xFFB90E32))
-                      .withValues(alpha: 0.52),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
+          const _RedFinalChallengeBackground(),
           SafeArea(
             bottom: false,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: Column(
                 children: [
-                  const SizedBox(height: AppSpacing.sm),
-                  SizedBox(
-                    height: 92,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Image.asset(
-                              'assets/logo-+18.png',
-                              width: 160,
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ),
-                        _HeaderSideButton(
-                          accent: _modeAccent,
-                          onTap: () {
-                            if (Navigator.of(context).canPop()) {
-                              Navigator.of(context).pop();
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+                  const SizedBox(height: AppSpacing.xs),
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.only(bottom: 170),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            'Juicio Final',
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  color: _modeAccent,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 48 * 0.68,
-                                ),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: AppSpacing.sm),
+                        const _ChallengeTypePill(text: 'Reto de La Profecía'),
+                        const SizedBox(height: AppSpacing.lg),
+                        const _ChallengeHeroIcon(),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          widget.punishedLabel,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 23,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${widget.punishedLabel} deberá cumplir el castigo\n'
-                            'elegido por...',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Debe cumplir el castigo',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.94),
+                            fontWeight: FontWeight.w400,
+                            fontSize: 20,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 18),
+                              child: _ProphecyChallengePanel(challengeText: widget.challengeText),
+                            ),
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: Center(
+                                child: MatchTimerChip(
+                                  seconds: _remainingTimerSeconds,
+                                  accent: const Color(0xFFE6422E),
+                                  onTap: _onTimerTap,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Spacer(),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: App3dPillButton(
+                                label: 'Jugar de nuevo',
+                                color: const Color(0xFFE9EBF1),
+                                gradientColors: const [Color(0xFFF7F8FA), Color(0xFFE4E7EE)],
+                                height: 62,
+                                depth: 4.4,
+                                borderRadius: 22,
+                                textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  color: const Color(0xFF3C465D),
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 34 * 0.56,
-                                  height: 1.14,
+                                  fontSize: 33 * 0.58,
                                 ),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Container(
-                            height: 42,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.lg,
-                            ),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(999),
-                              color: const Color(
-                                0xFF171A21,
-                              ).withValues(alpha: 0.92),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.09),
-                                width: 1,
+                                onTap: widget.onPlayAgainTap ?? _defaultPlayAgain,
                               ),
                             ),
-                            child: Text(
-                              'Reto de la profecía',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.94),
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 30 * 0.58,
-                                  ),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: _modeAccent.withValues(alpha: 0.44),
-                                  blurRadius: 22,
-                                  spreadRadius: 0.6,
-                                ),
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.26),
-                                  blurRadius: 14,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
-                            ),
-                            child: PremiumGlassSurface(
-                              height: 266,
-                              borderRadius: BorderRadius.circular(20),
-                              gradientColors: [
-                                const Color(0xFF25262B).withValues(alpha: 0.88),
-                                (_isFriendsMode
-                                        ? const Color(0xFF1F3F5C)
-                                        : const Color(0xFF4A2943))
-                                    .withValues(alpha: 0.86),
-                              ],
-                              borderColor: _modeAccent.withValues(alpha: 0.66),
-                              innerBorderColor: _modeAccent.withValues(
-                                alpha: 0.24,
-                              ),
-                              topHighlightOpacity: 0.14,
-                              bottomShadeOpacity: 0.2,
-                              padding: const EdgeInsets.fromLTRB(
-                                AppSpacing.md,
-                                AppSpacing.md,
-                                AppSpacing.md,
-                                AppSpacing.md,
-                              ),
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: Center(
-                                      child: Image.asset(
-                                        'assets/logo-icon-juicio-final-kiss.png',
-                                        width: 184,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: AppSpacing.md,
-                                      vertical: AppSpacing.md,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(14),
-                                      color: Colors.black.withValues(
-                                        alpha: 0.62,
-                                      ),
-                                      border: Border.all(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.08,
-                                        ),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      widget.challengeText,
-                                      textAlign: TextAlign.center,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleLarge
-                                          ?.copyWith(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.94,
-                                            ),
-                                            fontWeight: FontWeight.w500,
-                                            fontStyle: FontStyle.italic,
-                                            fontSize: 38 * 0.56,
-                                            height: 1.12,
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          App3dPillButton(
-                            label: 'Jugar de nuevo',
-                            color: const Color(0xFFE9EBF1),
-                            gradientColors: const [
-                              Color(0xFFF7F8FA),
-                              Color(0xFFE4E7EE),
-                            ],
-                            height: 62,
-                            depth: 4.4,
-                            borderRadius: 16,
-                            textStyle: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  color: const Color(0xFF4D586D),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 32 * 0.58,
-                                ),
-                            onTap: widget.onPlayAgainTap ?? _defaultPlayAgain,
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          App3dPillButton(
-                            label: 'Volver al inicio',
-                            color: _modeButtonGradient.first,
-                            gradientColors: _modeButtonGradient,
-                            height: 62,
-                            depth: 4.4,
-                            borderRadius: 16,
-                            textStyle: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: App3dPillButton(
+                                label: 'Volver al inicio',
+                                color: _primaryButtonGradient.first,
+                                gradientColors: _primaryButtonGradient,
+                                height: 62,
+                                depth: 4.4,
+                                borderRadius: 22,
+                                textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 32 * 0.58,
+                                  fontSize: 33 * 0.58,
                                 ),
-                            onTap: widget.onBackToHomeTap ?? _defaultBackToHome,
+                                onTap: widget.onBackToHomeTap ?? _defaultBackToHome,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          'Gracias por jugar, nos vemos pronto',
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.52),
+                            fontWeight: FontWeight.w400,
+                            fontSize: 15,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: AppSpacing.xl * 3.15),
+
+                      ],
                     ),
                   ),
                 ],
@@ -320,51 +212,232 @@ class _FinalProphecyChallengeModePageState
   }
 }
 
-class _HeaderSideButton extends StatelessWidget {
-  const _HeaderSideButton({required this.accent, required this.onTap});
-
-  final Color accent;
-  final VoidCallback onTap;
+class _TopBackButton extends StatelessWidget {
+  const _TopBackButton();
 
   @override
   Widget build(BuildContext context) {
-    final bright = Color.lerp(accent, Colors.white, 0.35)!;
-    final dark = Color.lerp(accent, const Color(0xFF120B2D), 0.78)!;
-
-    return SizedBox(
-      width: 52,
-      height: 84,
+    return Align(
+      alignment: Alignment.centerLeft,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(999),
+          onTap: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          },
           child: Ink(
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  bright.withValues(alpha: 0.18),
-                  dark.withValues(alpha: 0.5),
-                ],
-              ),
-              border: Border.all(
-                color: accent.withValues(alpha: 0.54),
-                width: 1,
-              ),
+              shape: BoxShape.circle,
+              color: Colors.black.withValues(alpha: 0.24),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.26)),
             ),
-            child: Center(
-              child: Icon(
-                Icons.chevron_left_rounded,
-                size: 32,
-                color: accent.withValues(alpha: 0.95),
-              ),
-            ),
+            child: Icon(Icons.chevron_left_rounded, color: Colors.white.withValues(alpha: 0.95), size: 28),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ChallengeTypePill extends StatelessWidget {
+  const _ChallengeTypePill({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 52,
+      width: 220,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xE616161D), Color(0xD0121218)],
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      alignment: Alignment.center,
+      child: Center(
+        child: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: 'Reto de ',
+                style: Theme.of(
+                  context,
+                ).textTheme.displaySmall?.copyWith(fontSize: 18, fontWeight: FontWeight.w400),
+              ),
+              TextSpan(
+                text: 'La Profecía',
+                style: Theme.of(
+                  context,
+                ).textTheme.displaySmall?.copyWith(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFFFA402B)),
+              ),
+            ],
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+class _ChallengeHeroIcon extends StatelessWidget {
+  const _ChallengeHeroIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFFCC2317), width: 1.4),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF1F222B), Color(0xFF0D0E13)],
+        ),
+      ),
+      child: Center(
+        child: Image.asset('assets/logo-icon-judgment-prophecy-or-group.png', width: 88, fit: BoxFit.contain),
+      ),
+    );
+  }
+}
+
+class _ProphecyChallengePanel extends StatelessWidget {
+  const _ProphecyChallengePanel({required this.challengeText});
+
+  final String challengeText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xl,
+        AppSpacing.md,
+        AppSpacing.xl + 4,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFA20D12), Color(0xFF4A070C)],
+        ),
+        border: Border.all(color: const Color(0xFFE43B2A), width: 1.1),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFF3F2E).withValues(alpha: 0.24),
+            blurRadius: 26,
+            spreadRadius: 0.6,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.34),
+            blurRadius: 16,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        height: 185,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              left: 58,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.lg,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFF5A1010), Color(0xFF2B0608)],
+                  ),
+                  border: Border.all(
+                    color: const Color(0xFFE43B2A),
+                    width: 1,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    challengeText,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.94),
+                          fontWeight: FontWeight.w500,
+                          fontStyle: FontStyle.italic,
+                          fontSize: 38 * 0.56,
+                          height: 1.12,
+                        ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: -6,
+              top:0,
+              bottom: 0,
+              child: Image.asset(
+                'assets/logo-icon-judgment-prophecy-or-group.png',
+                width: 130,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RedFinalChallengeBackground extends StatelessWidget {
+  const _RedFinalChallengeBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF12010A), Color(0xFF220108), Color(0xFF07020C)],
+              stops: [0, 0.56, 1],
+            ),
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: const Alignment(0, -0.08),
+              radius: 1.08,
+              colors: [
+                const Color(0xFFFF2A1B).withValues(alpha: 0.46),
+                const Color(0xFFB90E17).withValues(alpha: 0.24),
+                Colors.transparent,
+              ],
+              stops: const [0.0, 0.48, 0.95],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

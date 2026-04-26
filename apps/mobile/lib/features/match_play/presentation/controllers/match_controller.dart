@@ -5,6 +5,7 @@ import '../../../player_setup/domain/entities/game_setup_models.dart';
 import '../../../profile/domain/entities/user_stats_summary.dart';
 import '../../../premium/domain/services/entitlement_service.dart';
 import '../../../../core/services/analytics_service.dart';
+import '../../domain/entities/active_match_effect.dart';
 import '../../domain/entities/game_prompt.dart';
 import '../../domain/entities/match_level.dart';
 import '../../domain/entities/match_result.dart';
@@ -228,6 +229,47 @@ class MatchController extends ChangeNotifier {
       _error = 'No se pudieron actualizar los niveles habilitados.';
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<void> registerCurrentTurnEffectIfNeeded() async {
+    final current = _session;
+    final turn = current?.pendingTurn;
+    if (current == null || turn == null || !turn.hasMatchEffect) {
+      return;
+    }
+
+    final effectId = '${current.id}:${turn.turnNumber}:${turn.participantId}';
+    final alreadyRegistered = current.activeEffects.any(
+      (effect) => effect.id == effectId,
+    );
+    if (alreadyRegistered) {
+      return;
+    }
+
+    final participant = current.participants.firstWhere(
+      (item) => item.id == turn.participantId,
+      orElse: () => current.participants.first,
+    );
+    final effect = ActiveMatchEffect(
+      id: effectId,
+      participantId: turn.participantId,
+      playerName: _safeName(participant.name, fallbackId: participant.id),
+      text: turn.promptText,
+      turnNumber: turn.turnNumber,
+      roundNumber: turn.roundNumber,
+      createdAt: DateTime.now(),
+    );
+
+    try {
+      _session = current.copyWith(
+        activeEffects: <ActiveMatchEffect>[...current.activeEffects, effect],
+      );
+      _session = await _activeMatchRepository.save(_session!);
+      _error = null;
+      notifyListeners();
+    } catch (_) {
+      // Ignore failures here so turn UX stays responsive.
     }
   }
 

@@ -1,13 +1,25 @@
-import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
-import '../../../../core/theme/app_colors.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_3d_pill_button.dart';
+import '../../domain/entities/active_match_effect.dart';
+import '../providers/match_providers.dart';
 import '../../../game_mode_selection/domain/entities/game_mode.dart';
 import '../../../player_setup/domain/entities/game_setup_models.dart';
 import '../../../player_setup/presentation/widgets/premium_glass_surface.dart';
+import '../../../player_setup/presentation/widgets/round_top_header.dart';
+import '../../../settings/presentation/pages/settings_page.dart';
+import 'current_effects_widgets.dart';
 
-class RoundScoreSummaryModePage extends StatefulWidget {
+const _winnerGreenGradientTopBottom = <Color>[
+  Color(0xFF63DD5A),
+  Color(0xFF2CAA37),
+];
+
+class RoundScoreSummaryModePage extends ConsumerStatefulWidget {
   const RoundScoreSummaryModePage({
     required this.submission,
     required this.completedPlayerId,
@@ -25,6 +37,7 @@ class RoundScoreSummaryModePage extends StatefulWidget {
     this.pairCardBottomShadeOpacity = 0,
     this.pairCardInnerBorderAlpha = 0,
     this.onNextRoundTap,
+    this.onFinishMatchTap,
     super.key,
   });
 
@@ -44,13 +57,15 @@ class RoundScoreSummaryModePage extends StatefulWidget {
   final double pairCardBottomShadeOpacity;
   final double pairCardInnerBorderAlpha;
   final VoidCallback? onNextRoundTap;
+  final VoidCallback? onFinishMatchTap;
 
   @override
-  State<RoundScoreSummaryModePage> createState() =>
+  ConsumerState<RoundScoreSummaryModePage> createState() =>
       _RoundScoreSummaryModePageState();
 }
 
-class _RoundScoreSummaryModePageState extends State<RoundScoreSummaryModePage> {
+class _RoundScoreSummaryModePageState
+    extends ConsumerState<RoundScoreSummaryModePage> {
   Color get _negativeAccent => const Color(0xFFFF3A4D);
 
   Color get _statusAccent =>
@@ -62,6 +77,8 @@ class _RoundScoreSummaryModePageState extends State<RoundScoreSummaryModePage> {
   int get _deltaPoints => widget.didComplete
       ? widget.gainedPoints.abs()
       : -widget.gainedPoints.abs();
+
+  var _showEffectsText = false;
 
   List<PlayerConfig> get _players {
     final named = widget.submission.players
@@ -79,7 +96,37 @@ class _RoundScoreSummaryModePageState extends State<RoundScoreSummaryModePage> {
     return _players.first;
   }
 
+  String _safeName(PlayerConfig player) {
+    final trimmed = player.name.trim();
+    return trimmed.isEmpty ? 'Jugador ${player.id}' : trimmed;
+  }
+
   int _scoreFor(int playerId) => widget.scoresByPlayerId[playerId] ?? 0;
+
+  Map<int, int> get _playerRankById {
+    final ranked = [..._players]
+      ..sort((left, right) {
+        final scoreCompare = _scoreFor(right.id).compareTo(_scoreFor(left.id));
+        if (scoreCompare != 0) {
+          return scoreCompare;
+        }
+        return left.id.compareTo(right.id);
+      });
+
+    final byId = <int, int>{};
+    for (var i = 0; i < ranked.length; i++) {
+      byId[ranked[i].id] = i + 1;
+    }
+    return byId;
+  }
+
+  int _rankFor(int playerId) => _playerRankById[playerId] ?? playerId;
+
+  Future<void> _openSettings() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage()));
+  }
 
   List<List<PlayerConfig>> get _pairs {
     if (widget.submission.pairs.isNotEmpty) {
@@ -93,11 +140,67 @@ class _RoundScoreSummaryModePageState extends State<RoundScoreSummaryModePage> {
     return list;
   }
 
+  int _pairScore(List<PlayerConfig> pair) =>
+      pair.map((player) => _scoreFor(player.id)).fold<int>(0, (a, b) => a + b);
+
+  int get _playerStanding {
+    final completedScore = _scoreFor(widget.completedPlayerId);
+    final betterScores = _players
+        .where((player) => _scoreFor(player.id) > completedScore)
+        .length;
+    return betterScores + 1;
+  }
+
+  int get _pairStanding {
+    if (_pairs.isEmpty) {
+      return 1;
+    }
+
+    List<PlayerConfig>? completedPair;
+    for (final pair in _pairs) {
+      if (pair.any((player) => player.id == widget.completedPlayerId)) {
+        completedPair = pair;
+        break;
+      }
+    }
+    final fallbackPair = _pairs.first;
+    final targetPair = completedPair ?? fallbackPair;
+    final targetScore = _pairScore(targetPair);
+    final betterScores = _pairs
+        .where((pair) => _pairScore(pair) > targetScore)
+        .length;
+    return betterScores + 1;
+  }
+
+  String get _positionMessage {
+    final standing = widget.submission.mode.isCouples && _pairs.length > 1
+        ? _pairStanding
+        : _playerStanding;
+    final verb = widget.submission.mode.isCouples ? 'van' : 'vas';
+    return 'Ahora $verb ${standing <= 0 ? 1 : standing}º';
+  }
+
+  Future<void> _onEffectsSlideTap(List<ActiveMatchEffect> effects) async {
+    if (!_showEffectsText) {
+      setState(() {
+        _showEffectsText = true;
+      });
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.74),
+      builder: (_) => CurrentEffectsDialog(effects: effects),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final completedName = _completedPlayer.name.trim().isEmpty
-        ? 'Jugador ${_completedPlayer.id}'
-        : _completedPlayer.name.trim();
+    final completedName = _safeName(_completedPlayer);
+    final effects =
+        ref.watch(matchSessionProvider)?.activeEffects ??
+        const <ActiveMatchEffect>[];
 
     return PopScope(
       canPop: false,
@@ -107,6 +210,7 @@ class _RoundScoreSummaryModePageState extends State<RoundScoreSummaryModePage> {
           fit: StackFit.expand,
           children: [
             Image.asset(widget.backgroundAsset, fit: BoxFit.cover),
+            _RoundScoreSummaryLightRays(accentColor: _statusGlowColor),
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -122,14 +226,14 @@ class _RoundScoreSummaryModePageState extends State<RoundScoreSummaryModePage> {
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: RadialGradient(
-                  center: const Alignment(0, -0.05),
-                  radius: 0.96,
+                  center: const Alignment(0, -0.18),
+                  radius: 1.0,
                   colors: [
-                    _statusGlowColor.withValues(alpha: 0.42),
-                    _statusGlowColor.withValues(alpha: 0.15),
+                    _statusGlowColor.withValues(alpha: 0.48),
+                    _statusGlowColor.withValues(alpha: 0.20),
                     Colors.transparent,
                   ],
-                  stops: const [0, 0.36, 0.82],
+                  stops: const [0, 0.40, 0.88],
                 ),
               ),
             ),
@@ -140,22 +244,15 @@ class _RoundScoreSummaryModePageState extends State<RoundScoreSummaryModePage> {
                 child: Column(
                   children: [
                     const SizedBox(height: AppSpacing.sm),
-                    SizedBox(
-                      height: 92,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Image.asset(
-                                'assets/logo-+18.png',
-                                width: 160,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    RoundTopHeader(
+                      round: widget.round,
+                      isFriendsMode: widget.submission.mode.isFriends,
+                      onBackTap: () {
+                        if (Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                      onSettingsTap: _openSettings,
                     ),
                     Expanded(
                       child: SingleChildScrollView(
@@ -163,78 +260,26 @@ class _RoundScoreSummaryModePageState extends State<RoundScoreSummaryModePage> {
                         child: Column(
                           children: [
                             const SizedBox(height: AppSpacing.sm),
-                            Text(
-                              '$completedName ${widget.didComplete ? 'ha cumplido' : 'no ha cumplido'}',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    fontSize: 38 * 0.66,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text.rich(
-                              TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: widget.didComplete
-                                        ? 'Ha conseguido '
-                                        : 'Ha descontado ',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.9,
-                                          ),
-                                        ),
-                                  ),
-                                  TextSpan(
-                                    text:
-                                        '${_deltaPoints >= 0 ? '+' : ''}$_deltaPoints puntos',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(
-                                          color: widget.didComplete
-                                              ? const Color(0xFFFFB000)
-                                              : _negativeAccent,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                            Text(
-                              completedName,
-                              style: Theme.of(context).textTheme.headlineLarge
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 48 * 0.78,
-                                  ),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
                             RoundScoreSummaryCompactPointsChip(
                               points: _deltaPoints,
+                                statusAccent: _statusAccent,
+
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            RoundScoreSummaryPlayerSpotlight(
+                              player: _completedPlayer,
+                              borderColor: _statusAccent,
+                              didComplete: widget.didComplete,
+                              playerName: completedName,
                             ),
                             const SizedBox(height: AppSpacing.lg),
-                            Text(
-                              'Puntaje Ronda ${widget.round}',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.95),
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                  ),
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
                             if (widget.submission.mode.isCouples &&
                                 _pairs.length > 1)
                               RoundScoreSummaryCouplesPairsSection(
                                 pairs: _pairs,
                                 completedPlayerId: widget.completedPlayerId,
                                 scoreFor: _scoreFor,
+                                rankForPlayerId: _rankFor,
                                 baseCircleColor: widget.baseNumberCircle,
                                 didComplete: widget.didComplete,
                                 statusAccent: _statusAccent,
@@ -257,25 +302,53 @@ class _RoundScoreSummaryModePageState extends State<RoundScoreSummaryModePage> {
                                     : _players,
                                 completedPlayerId: widget.completedPlayerId,
                                 scoreFor: _scoreFor,
+                                rankForPlayerId: _rankFor,
                                 baseCircleColor: widget.baseNumberCircle,
                                 didComplete: widget.didComplete,
                                 statusAccent: _statusAccent,
                               ),
                             const SizedBox(height: AppSpacing.lg),
-                            RoundScoreSummaryRoundChip(
-                              round: widget.round,
-                              accentColor: widget.modeAccent,
+                            Text(
+                              _positionMessage,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.92),
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 30 * 0.58,
+                                  ),
                             ),
                             const SizedBox(height: AppSpacing.xl),
                             RoundScoreSummaryNextRoundButton(
-                              gradient: widget.buttonGradient,
                               onTap: widget.onNextRoundTap ?? () {},
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            RoundScoreSummaryFinishMatchButton(
+                              gradient: widget.buttonGradient,
+                              onTap: widget.onFinishMatchTap ?? () {},
                             ),
                           ],
                         ),
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 182,
+              right: -4,
+              child: TapRegion(
+                onTapOutside: (_) {
+                  if (_showEffectsText) {
+                    setState(() {
+                      _showEffectsText = false;
+                    });
+                  }
+                },
+                child: CurrentEffectsSlideButton(
+                  expanded: _showEffectsText,
+                  hasEffects: effects.isNotEmpty,
+                  onTap: () => _onEffectsSlideTap(effects),
                 ),
               ),
             ),
@@ -286,11 +359,127 @@ class _RoundScoreSummaryModePageState extends State<RoundScoreSummaryModePage> {
   }
 }
 
+class _RoundScoreSummaryLightRays extends StatelessWidget {
+  const _RoundScoreSummaryLightRays({required this.accentColor});
+
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: CustomPaint(
+        painter: _RoundScoreSummaryRaysPainter(color: accentColor),
+      ),
+    );
+  }
+}
+
+class _RoundScoreSummaryRaysPainter extends CustomPainter {
+  _RoundScoreSummaryRaysPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height * 0.38);
+    final radius = size.longestSide * 0.82;
+    const rayCount = 34;
+    const darkness = Color(0x99000000);
+    final rayPaint = Paint()..style = PaintingStyle.fill;
+
+    for (var i = 0; i < rayCount; i++) {
+      final startAngle = (2 * math.pi * i) / rayCount;
+      final sweep = (2 * math.pi / rayCount) * 0.52;
+      final alpha = i.isEven ? 0.18 : 0.08;
+      rayPaint.color = Color.lerp(
+        color.withValues(alpha: alpha),
+        darkness,
+        i.isEven ? 0.12 : 0.38,
+      )!;
+      final path = Path()
+        ..moveTo(center.dx, center.dy)
+        ..arcTo(
+          Rect.fromCircle(center: center, radius: radius),
+          startAngle,
+          sweep,
+          false,
+        )
+        ..close();
+      canvas.drawPath(path, rayPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoundScoreSummaryRaysPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
+class RoundScoreSummaryPlayerSpotlight extends StatelessWidget {
+  const RoundScoreSummaryPlayerSpotlight({
+    required this.player,
+    required this.borderColor,
+    required this.didComplete,
+    required this.playerName,
+    super.key,
+  });
+
+  final PlayerConfig player;
+  final Color borderColor;
+  final bool didComplete;
+  final String playerName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 116,
+          height: 116,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: borderColor, width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: borderColor.withValues(alpha: 0.42),
+                blurRadius: 24,
+                spreadRadius: 0.3,
+              ),
+            ],
+          ),
+          child: ClipOval(
+            child: Image.asset(player.avatarAssetPath, fit: BoxFit.cover),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          playerName,
+          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            fontSize: 48 * 0.78,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          didComplete ? 'La rompiste!' : 'Toma shot',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: Colors.white.withValues(alpha: 0.90),
+            fontWeight: FontWeight.w500,
+            fontSize: 34 * 0.56,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class RoundScoreSummaryCouplesPairsSection extends StatelessWidget {
   const RoundScoreSummaryCouplesPairsSection({
     required this.pairs,
     required this.completedPlayerId,
     required this.scoreFor,
+    required this.rankForPlayerId,
     required this.baseCircleColor,
     required this.didComplete,
     required this.statusAccent,
@@ -306,6 +495,7 @@ class RoundScoreSummaryCouplesPairsSection extends StatelessWidget {
   final List<List<PlayerConfig>> pairs;
   final int completedPlayerId;
   final int Function(int playerId) scoreFor;
+  final int Function(int playerId) rankForPlayerId;
   final Color baseCircleColor;
   final bool didComplete;
   final Color statusAccent;
@@ -336,56 +526,72 @@ class RoundScoreSummaryCouplesPairsSection extends StatelessWidget {
     return Column(
       children: [
         for (var index = 0; index < pairs.length; index++) ...[
-          _PairCard(
-            height: _pairCardHeight(context, pairs[index].length),
-            usePremiumSurface: usePremiumPairCards,
-            topHighlightOpacity: pairCardTopHighlightOpacity,
-            bottomShadeOpacity: pairCardBottomShadeOpacity,
-            innerBorderAlpha: pairCardInnerBorderAlpha,
-            child: Column(
-              children: [
-                Text(
-                  'Pareja ${index + 1}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.95),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                for (
-                  var playerIndex = 0;
-                  playerIndex < pairs[index].length;
-                  playerIndex++
-                ) ...[
-                  RoundScoreSummaryScoreRow(
-                    player: pairs[index][playerIndex],
-                    score: scoreFor(pairs[index][playerIndex].id),
-                    highlight:
-                        pairs[index][playerIndex].id == completedPlayerId,
-                    baseCircleColor: baseCircleColor,
-                    didComplete: didComplete,
-                    statusAccent: statusAccent,
-                  ),
-                  if (playerIndex != pairs[index].length - 1)
-                    const SizedBox(height: AppSpacing.sm),
-                ],
-                const SizedBox(height: AppSpacing.sm),
-                RoundScoreSummaryPairTotalChip(
-                  pairScore: pairs[index]
-                      .map((player) => scoreFor(player.id))
-                      .fold<int>(0, (sum, score) => sum + score),
-                  pointsDelta: lostPoints,
-                  height: pairTotalChipHeight,
-                  highlightLoss:
-                      !didComplete &&
-                      pairs[index].any(
-                        (player) => player.id == completedPlayerId,
+          ...() {
+            final orderedPair = [...pairs[index]]
+              ..sort((left, right) {
+                final scoreCompare = scoreFor(
+                  right.id,
+                ).compareTo(scoreFor(left.id));
+                if (scoreCompare != 0) {
+                  return scoreCompare;
+                }
+                return left.id.compareTo(right.id);
+              });
+
+            return [
+              _PairCard(
+                height: _pairCardHeight(context, pairs[index].length),
+                usePremiumSurface: usePremiumPairCards,
+                topHighlightOpacity: pairCardTopHighlightOpacity,
+                bottomShadeOpacity: pairCardBottomShadeOpacity,
+                innerBorderAlpha: pairCardInnerBorderAlpha,
+                child: Column(
+                  children: [
+                    Text(
+                      'Pareja ${index + 1}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
                       ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    for (
+                      var playerIndex = 0;
+                      playerIndex < orderedPair.length;
+                      playerIndex++
+                    ) ...[
+                      RoundScoreSummaryScoreRow(
+                        player: orderedPair[playerIndex],
+                        score: scoreFor(orderedPair[playerIndex].id),
+                        rank: rankForPlayerId(orderedPair[playerIndex].id),
+                        highlight:
+                            orderedPair[playerIndex].id == completedPlayerId,
+                        baseCircleColor: baseCircleColor,
+                        didComplete: didComplete,
+                        statusAccent: statusAccent,
+                      ),
+                      if (playerIndex != orderedPair.length - 1)
+                        const SizedBox(height: AppSpacing.sm),
+                    ],
+                    const SizedBox(height: AppSpacing.sm),
+                    RoundScoreSummaryPairTotalChip(
+                      pairScore: pairs[index]
+                          .map((player) => scoreFor(player.id))
+                          .fold<int>(0, (sum, score) => sum + score),
+                      pointsDelta: lostPoints,
+                      height: pairTotalChipHeight,
+                      highlightLoss:
+                          !didComplete &&
+                          orderedPair.any(
+                            (player) => player.id == completedPlayerId,
+                          ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            ];
+          }(),
           if (index != pairs.length - 1) const SizedBox(height: AppSpacing.md),
         ],
       ],
@@ -467,6 +673,7 @@ class RoundScoreSummaryScoreRowsSection extends StatelessWidget {
     required this.players,
     required this.completedPlayerId,
     required this.scoreFor,
+    required this.rankForPlayerId,
     required this.baseCircleColor,
     required this.didComplete,
     required this.statusAccent,
@@ -476,24 +683,36 @@ class RoundScoreSummaryScoreRowsSection extends StatelessWidget {
   final List<PlayerConfig> players;
   final int completedPlayerId;
   final int Function(int playerId) scoreFor;
+  final int Function(int playerId) rankForPlayerId;
   final Color baseCircleColor;
   final bool didComplete;
   final Color statusAccent;
 
   @override
   Widget build(BuildContext context) {
+    final orderedPlayers = [...players]
+      ..sort((left, right) {
+        final scoreCompare = scoreFor(right.id).compareTo(scoreFor(left.id));
+        if (scoreCompare != 0) {
+          return scoreCompare;
+        }
+        return left.id.compareTo(right.id);
+      });
+
     return Column(
       children: [
-        for (var i = 0; i < players.length; i++) ...[
+        for (var i = 0; i < orderedPlayers.length; i++) ...[
           RoundScoreSummaryScoreRow(
-            player: players[i],
-            score: scoreFor(players[i].id),
-            highlight: players[i].id == completedPlayerId,
+            player: orderedPlayers[i],
+            score: scoreFor(orderedPlayers[i].id),
+            rank: rankForPlayerId(orderedPlayers[i].id),
+            highlight: orderedPlayers[i].id == completedPlayerId,
             baseCircleColor: baseCircleColor,
             didComplete: didComplete,
             statusAccent: statusAccent,
           ),
-          if (i != players.length - 1) const SizedBox(height: AppSpacing.sm),
+          if (i != orderedPlayers.length - 1)
+            const SizedBox(height: AppSpacing.sm),
         ],
       ],
     );
@@ -504,6 +723,7 @@ class RoundScoreSummaryScoreRow extends StatelessWidget {
   const RoundScoreSummaryScoreRow({
     required this.player,
     required this.score,
+    required this.rank,
     required this.highlight,
     required this.baseCircleColor,
     required this.didComplete,
@@ -513,6 +733,7 @@ class RoundScoreSummaryScoreRow extends StatelessWidget {
 
   final PlayerConfig player;
   final int score;
+  final int rank;
   final bool highlight;
   final Color baseCircleColor;
   final bool didComplete;
@@ -561,18 +782,26 @@ class RoundScoreSummaryScoreRow extends StatelessWidget {
                   ? LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: AppColors.winnerGradientTopBottom,
+                      colors: _winnerGreenGradientTopBottom,
                     )
                   : null,
             ),
-            child: Text(
-              '${player.id}',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 26 * 0.7,
-              ),
-            ),
+            child: highlight
+                ? Icon(
+                    didComplete
+                        ? Icons.arrow_upward_rounded
+                        : Icons.arrow_downward_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  )
+                : Text(
+                    '$rank',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 26 * 0.7,
+                    ),
+                  ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -614,13 +843,11 @@ class RoundScoreSummaryScorePill extends StatelessWidget {
   Widget build(BuildContext context) {
     final gradient = highlight
         ? (didComplete
-              ? AppColors.winnerGradientTopBottom
+              ? _winnerGreenGradientTopBottom
               : const [Color(0xFFF24B45), Color(0xFFD7382C)])
         : null;
     final bg = highlight ? null : const Color(0xFFF2F3F6);
-    final textColor = highlight
-        ? (didComplete ? const Color(0xFF8A6700) : Colors.white)
-        : const Color(0xFF344054);
+    final textColor = highlight ? Colors.white : const Color(0xFF344054);
 
     return Container(
       height: 44,
@@ -639,7 +866,7 @@ class RoundScoreSummaryScorePill extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            score >= 0 ? '+$score' : '$score',
+            '$score',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: textColor,
               fontWeight: FontWeight.w700,
@@ -695,7 +922,7 @@ class RoundScoreSummaryPairTotalChip extends StatelessWidget {
             ),
           ),
           Text(
-            highlightLoss ? '-$pointsDelta' : '+$pairScore',
+            highlightLoss ? '-$pointsDelta' : '$pairScore',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: highlightLoss
                   ? const Color(0xFFFF3A4D)
@@ -718,15 +945,18 @@ class RoundScoreSummaryPairTotalChip extends StatelessWidget {
 }
 
 class RoundScoreSummaryCompactPointsChip extends StatelessWidget {
-  const RoundScoreSummaryCompactPointsChip({required this.points, super.key});
+  const RoundScoreSummaryCompactPointsChip({required this.points,
+  required this.statusAccent,
+   super.key});
 
   final int points;
+  final Color statusAccent;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+      height: 49,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
         color: const Color(0xFF15131D).withValues(alpha: 0.84),
@@ -748,9 +978,9 @@ class RoundScoreSummaryCompactPointsChip extends StatelessWidget {
           Text(
             '${points >= 0 ? '+' : ''}$points puntos',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.86),
+              color: statusAccent.withValues(alpha: 0.86),
               fontWeight: FontWeight.w500,
-              fontSize: 22 * 0.7,
+              fontSize: 15,
             ),
           ),
         ],
@@ -814,7 +1044,31 @@ class RoundScoreSummaryRoundChip extends StatelessWidget {
 }
 
 class RoundScoreSummaryNextRoundButton extends StatelessWidget {
-  const RoundScoreSummaryNextRoundButton({
+  const RoundScoreSummaryNextRoundButton({required this.onTap, super.key});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return App3dPillButton(
+      label: 'Siguiente',
+      color: const Color(0xFFF7F8FA),
+      gradientColors: const [Color(0xFFF7F8FA), Color(0xFFE4E7EE)],
+      height: 62,
+      depth: 4.4,
+      borderRadius: 16,
+      textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+        color: const Color(0xFF0F1115),
+        fontWeight: FontWeight.w500,
+        fontSize: 32 * 0.58,
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+class RoundScoreSummaryFinishMatchButton extends StatelessWidget {
+  const RoundScoreSummaryFinishMatchButton({
     required this.gradient,
     required this.onTap,
     super.key,
@@ -825,19 +1079,22 @@ class RoundScoreSummaryNextRoundButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return App3dPillButton(
-      label: 'Siguiente ronda',
-      color: gradient.first,
-      gradientColors: gradient,
-      height: 62,
-      depth: 4.4,
-      borderRadius: 16,
-      textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-        color: Colors.white,
-        fontWeight: FontWeight.w600,
-        fontSize: 32 * 0.58,
+    return FractionallySizedBox(
+      widthFactor: 0.74,
+      child: App3dPillButton(
+        label: 'Finalizar partida',
+        color: gradient.first,
+        gradientColors: gradient,
+        height: 56,
+        depth: 4,
+        borderRadius: 16,
+        textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+          color: Colors.white.withValues(alpha: 0.96),
+          fontWeight: FontWeight.w600,
+          fontSize: 32 * 0.58,
+        ),
+        onTap: onTap,
       ),
-      onTap: onTap,
     );
   }
 }
